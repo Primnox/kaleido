@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kaleido templates</title>
+<style>
+  :root { --ink: #111; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0c0c0d; color: #eee; font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+  .sheet { max-width: 1280px; margin: 0 auto; padding: 40px 32px 80px; }
+  .sheet > h1 { font: 800 34px "Segoe UI Variable Display", "Segoe UI", sans-serif; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .sheet > p { margin: 0 0 40px; color: #8c8c8c; }
+  .row { display: grid; grid-template-columns: 1.75fr 1fr; gap: 18px; margin-bottom: 18px; }
+  .cap { display: flex; align-items: baseline; gap: 14px; margin: 46px 0 14px; }
+  .cap b { font: 800 26px "Segoe UI Variable Display", "Segoe UI", sans-serif; letter-spacing: -0.01em; }
+  .cap span { color: #8c8c8c; }
+  .cap i { font: 700 12px "Cascadia Mono", Consolas, monospace; color: #555; font-style: normal; }
+  .frame { position: relative; aspect-ratio: 16 / 10; border-radius: 10px; overflow: hidden; background: #000; }
+  .tag { position: absolute; right: 10px; bottom: 8px; font: 700 10px "Cascadia Mono", Consolas, monospace; color: rgba(255,255,255,.55); letter-spacing: .08em; z-index: 50; }
+  .tag.dark { color: rgba(0,0,0,.45); }
+
+  /* a painted film frame used as the "video" everywhere */
+  .scene { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(var(--s1, #f6a06b), var(--s2, #6b3b6e) 62%, var(--s3, #241433)); }
+  .scene::before { content: ""; position: absolute; width: 22%; aspect-ratio: 1; left: var(--sx, 58%); top: var(--sy, 34%); border-radius: 50%; background: var(--sun, #ffe2a8); opacity: .9; }
+  .scene::after { content: ""; position: absolute; inset: 0; background:
+    linear-gradient(transparent 62%, var(--h1, #2b1838) 62%),
+    var(--h2, #3d2150);
+    clip-path: polygon(0 70%, 14% 56%, 27% 66%, 41% 50%, 56% 63%, 70% 52%, 84% 64%, 100% 55%, 100% 100%, 0 100%); }
+  .scene.b { --s1:#8fd3e8; --s2:#2c6e8f; --s3:#0e2a3a; --sun:#fdf6d8; --h1:#0d3346; --h2:#123e52; --sx:18%; --sy:22%; }
+  .scene.c { --s1:#c7e59a; --s2:#4f8a4b; --s3:#163220; --sun:#fff3c4; --h1:#1d3b23; --h2:#24492b; --sx:70%; --sy:18%; }
+  .scene.d { --s1:#2a2350; --s2:#141030; --s3:#05040e; --sun:#e9e6ff; --h1:#0b0920; --h2:#120f2c; --sx:76%; --sy:14%; }
+  .scene.e { --s1:#ffd4c2; --s2:#e07a6a; --s3:#5a1f2c; --sun:#fff; --h1:#4a1825; --h2:#5c2030; --sx:30%; --sy:40%; }
+  .scene.f { --s1:#e9e3cf; --s2:#b8a77d; --s3:#4f4330; --sun:#fffbe9; --h1:#3e3424; --h2:#4d412c; --sx:48%; --sy:26%; }
+
+  /* ---------- 1 Orbit ---------- */
+  .orbit-ring { position: absolute; left: 50%; top: 50%; width: 52%; aspect-ratio: 1; transform: translate(-50%, -50%); }
+  .orbit-ring svg { width: 100%; height: 100%; overflow: visible; }
+  .prog { stroke-dasharray: 2513; stroke-dashoffset: 1300; animation: orbitProg 9s linear infinite; }
+  @keyframes orbitProg { from { stroke-dashoffset: 1700; } to { stroke-dashoffset: 700; } }
+  .knob { transform-origin: 500px 500px; animation: orbitKnob 9s linear infinite; }
+  @keyframes orbitKnob { from { transform: rotate(117deg); } to { transform: rotate(260deg); } }
+  .bubble { position: absolute; width: 17%; aspect-ratio: 1; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 3px #fff, 0 10px 30px rgba(0,0,0,.5); left: 63%; top: 57%; }
+  .bubble .scene { transform: scale(1.4); }
+  .btime { position: absolute; left: 66.6%; top: 87%; font: 700 13px "Cascadia Mono", Consolas, monospace; color: #fff; text-shadow: 0 1px 6px #000; }
+  .disc { position: absolute; left: 50%; top: 50%; width: 15%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(10,8,20,.55); backdrop-filter: blur(8px); display: grid; place-items: center; }
+  .disc::after { content: ""; margin-left: 8%; border-left: 26px solid #fff; border-top: 16px solid transparent; border-bottom: 16px solid transparent; }
+  .now { position: absolute; left: 50%; top: 27%; transform: translateX(-50%); font: 700 20px "Cascadia Mono", Consolas, monospace; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+  .left { position: absolute; left: 50%; top: 66%; transform: translateX(-50%); font: 600 12px "Cascadia Mono", Consolas, monospace; color: rgba(255,255,255,.7); }
+  .orrery { position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, #24183d, #0a0812 70%); }
+  .orb { position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 1px solid rgba(255,255,255,.09); transform: translate(-50%, -50%); }
+  .spin { position: absolute; inset: 0; animation: spin var(--d, 40s) linear infinite; }
+  .spin.rev { animation-direction: reverse; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .planet { position: absolute; width: var(--p, 15%); aspect-ratio: 1; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px rgba(255,255,255,.25); transform: translate(-50%, -50%); }
+  .planet .scene { animation: spin var(--d, 40s) linear infinite reverse; }
+  .spin.rev .planet .scene { animation-direction: normal; }
+  .sun { position: absolute; left: 50%; top: 50%; width: 30%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 4px rgba(255,180,120,.25), 0 0 60px rgba(255,140,90,.45); }
+  .sunring { position: absolute; left: 50%; top: 50%; width: 35%; aspect-ratio: 1; transform: translate(-50%, -50%) rotate(-90deg); }
+  .suntitle { position: absolute; left: 0; right: 0; top: 76%; text-align: center; font: 700 13px "Segoe UI Variable Display", sans-serif; }
+  .suntitle small { display: block; font: 600 10px "Cascadia Mono", monospace; color: #c9a8ff; }
+
+  /* ---------- 2 Spectra ---------- */
+  .amb { position: absolute; inset: -20%; filter: blur(40px) saturate(1.5); animation: hue 10s ease-in-out infinite alternate; }
+  @keyframes hue { to { filter: blur(40px) saturate(1.5) hue-rotate(-50deg); } }
+  .sp-video { position: absolute; left: 7%; right: 7%; top: 9%; height: 63%; border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,.45); }
+  .sp-title { position: absolute; left: 7%; top: 74%; font: 300 16px "Segoe UI Variable Display", sans-serif; color: #fff; letter-spacing: -.01em; }
+  .sp-title b { font-weight: 700; }
+  .code { position: absolute; left: 7%; right: 7%; height: 8%; bottom: 6%; display: flex; border-radius: 6px; overflow: hidden; }
+  .code i { flex: 1; }
+  .code .dim { position: absolute; top: 0; bottom: 0; right: 0; left: 0; background: rgba(0,0,0,.45); animation: dim 12s linear infinite; }
+  @keyframes dim { from { left: 18%; } to { left: 82%; } }
+  .lens { position: absolute; bottom: 4%; height: 15%; width: 3px; background: #fff; border-radius: 2px; box-shadow: 0 0 12px #fff; animation: lens 12s linear infinite; }
+  @keyframes lens { from { left: calc(7% + 86% * .18); } to { left: calc(7% + 86% * .82); } }
+  .lens::after { content: "1:04:12"; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); font: 700 11px "Cascadia Mono", monospace; color: #111; background: #fff; padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
+  .sp-lib { position: absolute; inset: 0; background: #121214; padding: 7% 6%; display: flex; flex-direction: column; gap: 6%; }
+  .band { position: relative; flex: 1; display: flex; border-radius: 5px; overflow: hidden; }
+  .band i { flex: 1; }
+  .band span { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font: 700 11px "Segoe UI Variable Display", sans-serif; color: #fff; text-shadow: 0 1px 8px #000; }
+  .band.open { flex: 2.4; box-shadow: 0 0 0 2px #fff; }
+  .band .peek { position: absolute; left: 58%; top: 50%; width: 30%; aspect-ratio: 16/9; transform: translate(-50%, -50%); border-radius: 4px; overflow: hidden; box-shadow: 0 6px 20px rgba(0,0,0,.6); }
+  .band .peek::after { content: ""; position: absolute; left: 50%; top: -40%; bottom: -40%; width: 2px; background: #fff; }
+
+  /* ---------- 3 Current ---------- */
+  .cur { position: absolute; inset: 0; background: #ece8df; }
+  .cur-video { position: absolute; left: 5%; right: 5%; top: 7%; height: 58%; border-radius: 4px; overflow: hidden; background: #000; }
+  .river { position: absolute; left: 0; right: 0; top: 71%; height: 18%; overflow: hidden; }
+  .reel { position: absolute; top: 0; bottom: 0; display: flex; gap: 6px; animation: flow 14s linear infinite; }
+  @keyframes flow { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .reel .f { position: relative; height: 100%; aspect-ratio: 16/10; border-radius: 3px; overflow: hidden; }
+  .head { position: absolute; left: 50%; top: 67%; height: 26%; width: 3px; background: #e5341c; transform: translateX(-50%); }
+  .head::before { content: "0:41:07"; position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font: 700 11px "Cascadia Mono", monospace; color: #e5341c; }
+  .marks { position: absolute; left: 0; right: 0; top: 91%; display: flex; justify-content: space-around; font: 600 10px "Cascadia Mono", monospace; color: #8b8577; }
+  .lanes { position: absolute; inset: 0; background: #ece8df; display: flex; flex-direction: column; justify-content: center; gap: 4%; padding: 0 0 0 0; }
+  .lane { position: relative; height: 19%; overflow: hidden; }
+  .lane .reel { gap: 4px; animation-duration: 22s; }
+  .lane.r .reel { animation-direction: reverse; }
+  .lane b { position: absolute; left: 10px; top: 6px; z-index: 2; font: 700 11px "Segoe UI Variable Display", sans-serif; color: #fff; background: #111; padding: 1px 7px; border-radius: 3px; }
+
+  /* ---------- 4 Scribble ---------- */
+  .paper { position: absolute; inset: 0; background-color: #f4eedf; background-image: radial-gradient(rgba(80,60,30,.07) 1px, transparent 1.2px); background-size: 7px 7px; color: #23211d; font-family: "Ink Free", "Segoe Print", "Comic Sans MS", cursive; }
+  .taped { position: absolute; left: 10%; right: 10%; top: 13%; height: 54%; transform: rotate(-1.2deg); box-shadow: 0 10px 22px rgba(60,40,10,.25); }
+  .taped .scene { border: 7px solid #fff; }
+  .tape { position: absolute; width: 16%; height: 9%; background: rgba(240,196,92,.75); z-index: 3; }
+  .tape.l { left: -5%; top: -3%; transform: rotate(-32deg); }
+  .tape.r { right: -5%; top: -3%; transform: rotate(28deg); background: rgba(132,198,214,.75); }
+  .hand { position: absolute; left: 10%; top: 3%; font-size: 19px; }
+  .hand u { text-decoration: none; background: linear-gradient(transparent 62%, rgba(255,120,90,.45) 62%); }
+  .pencil { position: absolute; left: 6%; right: 6%; top: 72%; height: 12%; overflow: visible; }
+  .draw { stroke-dasharray: 1000; animation: draw 8s linear infinite; }
+  @keyframes draw { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 420; } }
+  .boil { filter: url(#wobble); }
+  .doodles { position: absolute; left: 0; right: 0; top: 84%; display: flex; justify-content: center; gap: 22px; font-size: 15px; align-items: center; }
+  .doodles svg { width: 46px; height: 46px; overflow: visible; }
+  .flag { position: absolute; top: 66%; font-size: 13px; }
+  .polaroid { position: absolute; width: 30%; background: #fff; padding: 3% 3% 9%; box-shadow: 0 6px 14px rgba(60,40,10,.25); }
+  .polaroid .ph { position: relative; aspect-ratio: 1; overflow: hidden; }
+  .polaroid p { position: absolute; left: 0; right: 0; bottom: 1%; margin: 0; text-align: center; font-size: 11px; white-space: nowrap; }
+  .polaroid .bar { position: absolute; left: 10%; right: 10%; bottom: 0; height: 3px; }
+
+  /* ---------- 5 Salon ---------- */
+  .wall { position: absolute; inset: 0; background: #1f3a33; background-image: radial-gradient(ellipse at 50% 0%, rgba(255,240,200,.18), transparent 60%); overflow: hidden; }
+  .zoomer { position: absolute; inset: 0; transform-origin: 54.5% 46%; animation: zoom 9s cubic-bezier(.6,0,.2,1) infinite; }
+  @keyframes zoom { 0%, 18% { transform: scale(1); } 42%, 70% { transform: scale(3.6); } 94%, 100% { transform: scale(1); } }
+  .art { position: absolute; padding: 1.1%; background: linear-gradient(135deg, #b8913a, #e8cf86 40%, #8d6a22); box-shadow: 0 14px 24px rgba(0,0,0,.45); }
+  .art.blk { background: #151515; }
+  .mat { position: relative; width: 100%; height: 100%; background: #f2ecdc; padding: 8%; }
+  .mat .pic { position: relative; width: 100%; height: 100%; overflow: hidden; }
+  .placard { position: absolute; background: #f4efe2; color: #222; font: 9px "Sitka Text", Constantia, Georgia, serif; padding: 3px 6px; box-shadow: 0 2px 4px rgba(0,0,0,.3); }
+  .placard b { display: block; font: 700 9px "Sitka Text", Constantia, Georgia, serif; }
+  .sal-player .scene { inset: 0; }
+  .sal-card { position: absolute; left: 4%; bottom: 7%; width: 44%; background: #f4efe2; color: #1d1b16; padding: 12px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.4); font: 12px "Sitka Text", Constantia, Georgia, serif; }
+  .sal-card h4 { margin: 0; font: italic 600 17px "Sitka Banner", Constantia, Georgia, serif; }
+  .sal-card .meta { color: #6d665a; margin: 2px 0 10px; }
+  .sal-line { height: 2px; background: #cfc6b2; position: relative; }
+  .sal-line i { position: absolute; left: 0; top: 0; bottom: 0; width: 38%; background: #8d6a22; }
+  .sal-ctrl { display: flex; gap: 12px; margin-top: 9px; white-space: nowrap; font: 600 10px "Sitka Text", Constantia, Georgia, serif; letter-spacing: .06em; text-transform: uppercase; color: #5b5446; }
+  .sal-edge { position: absolute; inset: 0; box-shadow: inset 0 0 0 12px #c9a453, inset 0 0 0 26px #f2ecdc; pointer-events: none; }
+
+  /* ---------- 6 Island ---------- */
+  .isl { position: absolute; left: 50%; top: 4.5%; transform: translateX(-50%); background: #000; color: #fff; border-radius: 22px; overflow: hidden; transition: width .55s cubic-bezier(.3,1.4,.4,1), height .55s cubic-bezier(.3,1.4,.4,1), border-radius .55s; box-shadow: 0 10px 30px rgba(0,0,0,.35); width: 18%; height: 7%; }
+  .isl .st { position: absolute; inset: 0; opacity: 0; transition: opacity .25s; display: flex; align-items: center; padding: 0 14px; gap: 10px; font: 600 12px "Segoe UI Variable Text", sans-serif; white-space: nowrap; }
+  .isl[data-s="0"] { width: 18%; height: 7%; }
+  .isl[data-s="1"] { width: 56%; height: 24%; border-radius: 26px; }
+  .isl[data-s="2"] { width: 30%; height: 7%; }
+  .isl[data-s="3"] { width: 46%; height: 15%; border-radius: 24px; }
+  .isl[data-s="4"] { width: 28%; height: 9%; }
+  .isl[data-s="0"] .s0, .isl[data-s="1"] .s1, .isl[data-s="2"] .s2, .isl[data-s="3"] .s3, .isl[data-s="4"] .s4 { opacity: 1; transition-delay: .2s; }
+  .s0 { justify-content: space-between; font-family: "Cascadia Mono", monospace !important; }
+  .wave { display: flex; gap: 2px; align-items: center; height: 14px; }
+  .wave i { width: 3px; background: #6cf; border-radius: 2px; animation: wv .8s ease-in-out infinite alternate; }
+  @keyframes wv { from { height: 3px; } to { height: 14px; } }
+  .s1 { flex-direction: column; align-items: stretch !important; justify-content: center; padding: 0 20px !important; gap: 8px !important; }
+  .s1 .top { display: flex; justify-content: space-between; font-size: 13px; }
+  .s1 .bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.2); position: relative; }
+  .s1 .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 46%; background: #fff; border-radius: 3px; }
+  .s1 .btns { display: flex; justify-content: center; gap: 26px; font-size: 18px; }
+  .vbar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,.2); position: relative; }
+  .vbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 70%; background: #fff; border-radius: 3px; }
+  .thumbm { width: 74px; aspect-ratio: 16/9; position: relative; border-radius: 8px; overflow: hidden; flex: none; }
+  .pill-btn { margin-left: auto; background: #fff; color: #000; border-radius: 99px; padding: 5px 12px; font-weight: 700; }
+  .isl-lib { position: absolute; inset: 0; background: #000; padding: 6% 5% 5%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4%; align-content: start; }
+  .tile { position: relative; aspect-ratio: 1; border-radius: 24%; overflow: hidden; }
+  .tile.big { grid-column: span 2; aspect-ratio: auto; align-self: stretch; border-radius: 22px; box-shadow: 0 0 0 2px #fff; }
+  .tile .lbl { position: absolute; left: 10px; bottom: 8px; font: 700 11px "Segoe UI Variable Display", sans-serif; color: #fff; text-shadow: 0 1px 6px #000; }
+  .tile .pb { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.3); }
+  .tile .pb i { position: absolute; left: 0; top: 0; bottom: 0; width: 60%; background: #fff; border-radius: 2px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <filter id="wobble"><feTurbulence id="turb" type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="1" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3.2"/></filter>
+  <linearGradient id="sunset" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7a59"/><stop offset="1" stop-color="#ffd166"/></linearGradient>
+</svg>
+
+<div class="sheet">
+  <h1>Kaleido templates</h1>
+  <p>Six concept drawings. Left is the player, right is that template's own library view. All of them run on the same VLC engine.</p>
+
+  <!-- 1 ORBIT -->
+  <div class="cap"><i>01</i><b>Orbit</b><span>Time is a ring you turn. Scrub by dragging around it like a jog wheel. Volume and speed are the inner arcs. Right click opens a radial menu.</span></div>
+  <div class="row">
+    <div class="frame">
+      <div class="scene"></div>
+      <div class="now">0:41:07</div>
+      <div class="orbit-ring">
+        <svg viewBox="0 0 1000 1000">
+          <defs><path id="tp" d="M 150 500 A 350 350 0 0 1 850 500"/></defs>
+          <g fill="none" stroke-linecap="round">
+            <circle cx="500" cy="500" r="400" stroke="rgba(255,255,255,.18)" stroke-width="16" stroke-dasharray="560 14 380 14 700 14 400 14 435 14"/>
+            <circle class="prog" cx="500" cy="500" r="400" stroke="url(#sunset)" stroke-width="16" transform="rotate(-90 500 500)"/>
+            <path d="M 222 640 A 310 310 0 0 1 222 360" stroke="rgba(255,255,255,.18)" stroke-width="8"/>
+            <path d="M 222 640 A 310 310 0 0 1 196 470" stroke="#fff" stroke-width="8"/>
+            <path d="M 778 640 A 310 310 0 0 0 778 360" stroke="rgba(255,255,255,.18)" stroke-width="8"/>
+            <path d="M 778 640 A 310 310 0 0 0 808 520" stroke="#9be7ff" stroke-width="8"/>
+          </g>
+          <g class="knob"><circle cx="500" cy="100" r="22" fill="#fff"/></g>
+          <text font-family="Segoe UI Variable Display, Segoe UI" font-size="38" font-weight="700" fill="#fff" letter-spacing="4"><textPath href="#tp" startOffset="50%" text-anchor="middle">THE LONG WAY NORTH</textPath></text>
+          <text x="232" y="700" font-family="Cascadia Mono, monospace" font-size="26" fill="rgba(255,255,255,.75)">VOL 84</text>
+          <text x="700" y="700" font-family="Cascadia Mono, monospace" font-size="26" fill="#9be7ff">1.25x</text>
+        </svg>
+      </div>
+      <div class="disc"></div>
+      <div class="left">-1:02:51</div>
+      <div class="bubble"><div class="scene b"></div></div>
+      <div class="btime">1:12:30</div>
+      <div class="tag">PLAYER</div>
+    </div>
+    <div class="frame">
+      <div class="orrery">
+        <div class="orb" style="width:58%;aspect-ratio:1"></div>
+        <div class="orb" style="width:86%;aspect-ratio:1"></div>
+        <div class="orb" style="width:118%;aspect-ratio:1"></div>
+        <div class="spin" style="--d:38s"><div class="planet" style="left:50%;top:21%;--p:11%"><div class="scene b"></div></div><div class="planet" style="left:76%;top:62%;--p:11%"><div class="scene c"></div></div><div class="planet" style="left:24%;top:62%;--p:11%"><div class="scene e"></div></div></div>
+        <div class="spin rev" style="--d:70s"><div class="planet" style="left:50%;top:7%;--p:8%"><div class="scene d"></div></div><div class="planet" style="left:88%;top:38%;--p:8%"><div class="scene f"></div></div><div class="planet" style="left:79%;top:85%;--p:8%"><div class="scene"></div></div><div class="planet" style="left:21%;top:85%;--p:8%"><div class="scene c"></div></div><div class="planet" style="left:12%;top:38%;--p:8%"><div class="scene b"></div></div></div>
+        <div class="sun"><div class="scene"></div></div>
+        <svg class="sunring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="3"/><circle cx="50" cy="50" r="47" fill="none" stroke="url(#sunset)" stroke-width="3" stroke-dasharray="295" stroke-dashoffset="120" stroke-linecap="round"/></svg>
+        <div class="suntitle">The long way north<small>62 MIN LEFT</small></div>
+      </div>
+      <div class="tag">LIBRARY</div>
+    </div>
+  </div>
+
+  <!-- 2 SPECTRA -->
+  <div class="cap"><i>02</i><b>Spectra</b><span>The seek bar is the film's own colour barcode, one stripe per scene. The room around the video takes on the colour of the current shot.</span></div>
+  <div class="row">
+    <div class="frame">
+      <div class="amb"><div class="scene e" style="transform:scale(1.2)"></div></div>
+      <div class="sp-video"><div class="scene e"></div></div>
+      <div class="sp-title"><b>Coral Season</b> &nbsp; chapter 4, the reef</div>
+      <div class="code" id="code1"></div>
+      <div class="lens"></div>
+      <div class="tag">PLAYER</div>
+    </div>
+    <div class="frame">
+      <div class="sp-lib" id="splib"></div>
+      <div class="tag">LIBRARY</div>
+    </div>
+  </div>
+
+  <!-- 3 CURRENT -->
+  <div class="cap"><i>03</i><b>Current</b><span>A river of real frames flows under a red tape head. Grab it and fling it to scrub. Ctrl and wheel zooms time from seconds to minutes per frame.</span></div>
+  <div class="row">
+    <div class="frame">
+      <div class="cur">
+        <div class="cur-video"><div class="scene c"></div></div>
+        <div class="river"><div class="reel" id="reel1"></div></div>
+        <div class="head"></div>
+        <div class="marks"><span>CH 2  CROSSING</span><span>CH 3  THE CAMP</span><span>CH 4  NIGHT</span></div>
+      </div>
+      <div class="tag dark">PLAYER</div>
+    </div>
+    <div class="frame">
+      <div class="lanes" id="lanes"></div>
+      <div class="tag dark">LIBRARY</div>
+    </div>
+  </div>
+
+  <!-- 4 SCRIBBLE -->
+  <div class="cap"><i>04</i><b>Scribble</b><span>A sketchbook page. The video is taped in, the timeline is drawn in pencil as it plays, and every line gently boils like hand drawn animation.</span></div>
+  <div class="row">
+    <div class="frame">
+      <div class="paper">
+        <div class="hand">now watching: <u>the long way north</u></div>
+        <div class="taped"><div class="scene"></div><div class="tape l"></div><div class="tape r"></div></div>
+        <svg class="pencil boil" viewBox="0 0 1000 60" preserveAspectRatio="none">
+          <path d="M5 30 C 120 26, 220 36, 330 29 S 560 24, 690 31 S 880 36, 995 28" fill="none" stroke="#b9b2a2" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 9"/>
+          <path class="draw" d="M5 30 C 120 26, 220 36, 330 29 S 560 24, 690 31 S 880 36, 995 28" fill="none" stroke="#23211d" stroke-width="4.5" stroke-linecap="round"/>
+        </svg>
+        <div class="flag" style="left:30%">⚑ the camp</div>
+        <div class="flag" style="left:62%">⚑ night</div>
+        <div class="doodles boil">
+          <svg viewBox="0 0 50 50"><path d="M25 4 C 40 3, 47 15, 46 26 C 45 40, 34 47, 23 46 C 10 45, 3 35, 4 23 C 5 12, 14 5, 27 5" fill="none" stroke="#23211d" stroke-width="2.4"/><path d="M19 15 L 36 25 L 19 35 Z" fill="#23211d"/></svg>
+          <span>41:07 of 1:43:58</span>
+          <svg viewBox="0 0 50 50" style="width:34px;height:34px"><path d="M8 18 h8 l10 -9 v32 l-10 -9 h-8 z" fill="none" stroke="#23211d" stroke-width="2.4" stroke-linejoin="round"/><path d="M32 18 q 6 7 0 14 M37 13 q 11 12 0 24" fill="none" stroke="#23211d" stroke-width="2.4" stroke-linecap="round"/></svg>
+          <span style="color:#d9583b">subs: english</span>
+        </div>
+      </div>
+      <div class="tag dark">PLAYER</div>
+    </div>
+    <div class="frame">
+      <div class="paper">
+        <div class="hand" style="left:6%;top:4%">keep watching →</div>
+        <div class="polaroid boil" style="left:7%;top:17%;transform:rotate(-5deg)"><div class="ph"><div class="scene"></div></div><p>long way north</p><div class="bar" style="background:linear-gradient(90deg,#23211d 40%,#ccc5b4 40%)"></div></div>
+        <div class="polaroid" style="left:37%;top:23%;transform:rotate(3deg)"><div class="ph"><div class="scene b"></div></div><p>tide pools, ep 2</p></div>
+        <div class="polaroid" style="left:66%;top:14%;transform:rotate(-2deg)"><div class="ph"><div class="scene d"></div></div><p>night drive</p></div>
+        <div class="tape" style="left:13%;top:13%;transform:rotate(-14deg);width:12%;height:6%"></div>
+        <div class="tape" style="left:72%;top:10%;transform:rotate(8deg);width:12%;height:6%;background:rgba(132,198,214,.75)"></div>
+      </div>
+      <div class="tag dark">LIBRARY</div>
+    </div>
+  </div>
+
+  <!-- 5 SALON -->
+  <div class="cap"><i>05</i><b>Salon</b><span>Your library hangs on a museum wall. Opening a film flies the camera into its frame. Esc pulls back out and the film keeps playing on the wall.</span></div>
+  <div class="row">
+    <div class="frame sal-player">
+      <div class="scene f"></div>
+      <div class="sal-edge"></div>
+      <div class="sal-card">
+        <h4>The Long Way North</h4>
+        <div class="meta">2026. Oil on light, 1 hr 43 min.</div>
+        <div class="sal-line"><i></i></div>
+        <div class="sal-ctrl"><span>Pause</span><span>41:07</span><span>Subtitles</span><span>Back to wall</span></div>
+      </div>
+      <div class="tag">PLAYER</div>
+    </div>
+    <div class="frame">
+      <div class="wall"><div class="zoomer" id="zoomer"></div></div>
+      <div class="tag">LIBRARY</div>
+    </div>
+  </div>
+
+  <!-- 6 ISLAND -->
+  <div class="cap"><i>06</i><b>Island</b><span>One black pill at the top. It morphs into whatever the moment needs: scrubbing, volume, up next, skip intro. Nothing else is ever on screen.</span></div>
+  <div class="row">
+    <div class="frame">
+      <div class="scene d"></div>
+      <div class="isl" id="isl" data-s="0">
+        <div class="st s0"><div class="wave"><i style="animation-delay:-.1s"></i><i style="animation-delay:-.5s"></i><i style="animation-delay:-.3s"></i><i style="animation-delay:-.7s"></i></div><span>41:07</span></div>
+        <div class="st s1"><div class="top"><b>Night Drive</b><span>41:07 of 1:43:58</span></div><div class="bar"><i></i></div><div class="btns"><span>⏮</span><span>❚❚</span><span>⏭</span><span>CC</span></div></div>
+        <div class="st s2"><span>🔊</span><div class="vbar"><i></i></div><span>140%</span></div>
+        <div class="st s3"><div class="thumbm"><div class="scene b"></div></div><div><div style="opacity:.6;font-size:11px">Up next in 9s</div><div>Tide pools, ep 3</div></div><span class="pill-btn">Play</span></div>
+        <div class="st s4"><span>Opening</span><span class="pill-btn">Skip intro</span></div>
+      </div>
+      <div class="tag">PLAYER</div>
+    </div>
+    <div class="frame">
+      <div class="isl-lib">
+        <div class="tile big"><div class="scene d"></div><div class="lbl">Night drive</div><div class="pb"><i></i></div></div>
+        <div class="tile"><div class="scene b"></div></div>
+        <div class="tile"><div class="scene c"></div></div>
+        <div class="tile"><div class="scene e"></div></div>
+        <div class="tile"><div class="scene"></div></div>
+        <div class="tile"><div class="scene f"></div></div>
+        <div class="tile"><div class="scene b"></div></div>
+        <div class="tile"><div class="scene c"></div></div>
+        <div class="tile"><div class="scene d"></div></div>
+      </div>
+      <div class="tag">LIBRARY</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const pal = [[64,28,60],[118,44,72],[214,98,84],[246,160,107],[255,214,160],[110,170,190],[40,96,128],[22,50,70],[60,120,80],[180,210,140],[250,240,200],[90,60,110],[30,20,50],[230,120,90]];
+  const lerp = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  function stripes(seed, n) {
+    const out = [];
+    let a = pal[seed % pal.length], b = pal[(seed * 3 + 1) % pal.length];
+    for (let i = 0; i < n; i++) {
+      if (i % 12 === 0) { a = b; b = pal[(seed * 7 + i) % pal.length]; }
+      const c = lerp(a, b, (i % 12) / 12).map(v => Math.max(0, Math.min(255, v + ((i * 37 + seed * 11) % 23) - 11)));
+      out.push(`rgb(${c})`);
+    }
+    return out;
+  }
+  const code1 = document.getElementById('code1');
+  code1.innerHTML = stripes(2, 120).map(c => `<i style="background:${c}"></i>`).join('') + '<div class="dim"></div>';
+  document.getElementById('splib').innerHTML = [['Coral Season', 2], ['Night Drive', 5], ['The Long Way North', 3, true], ['Tide Pools', 8], ['Glass Harbor', 11]]
+    .map(([t, s, open]) => `<div class="band${open ? ' open' : ''}">${stripes(s, 90).map(c => `<i style="background:${c}"></i>`).join('')}<span>${t}</span>${open ? '<div class="peek"><div class="scene c"></div></div>' : ''}</div>`).join('');
+  const kinds = ['', 'b', 'c', 'd', 'e', 'f'];
+  const frames = seed => { let h = ''; for (let i = 0; i < 28; i++) h += `<div class="f"><div class="scene ${kinds[(seed + Math.floor(i / 3)) % 6]}"></div></div>`; return h + h; };
+  document.getElementById('reel1').innerHTML = frames(2);
+  document.getElementById('lanes').innerHTML = [['the long way north', 0], ['night drive', 3, 1], ['coral season', 4], ['tide pools ep 2', 1, 1]]
+    .map(([t, s, r]) => `<div class="lane${r ? ' r' : ''}"><b>${t}</b><div class="reel">${frames(s)}</div></div>`).join('');
+  const arts = [[6, 10, 20, 34, '', 'Coral Season'], [32, 8, 15, 22, 'b', 'Tide Pools'], [32, 46, 15, 26, 'blk d', 'Night Drive'], [52, 18, 25, 56, 'f', 'The Long Way North'], [83, 9, 12, 30, 'c', 'Field Notes'], [83, 52, 12, 22, 'blk e', 'Glass Harbor'], [6, 58, 20, 22, 'blk b', 'Ep 4']];
+  document.getElementById('zoomer').innerHTML = arts.map(([l, t, w, h, k, name]) => `<div class="art ${k.includes('blk') ? 'blk' : ''}" style="left:${l}%;top:${t}%;width:${w}%;height:${h}%"><div class="mat"><div class="pic"><div class="scene ${k.replace('blk', '').trim()}"></div></div></div></div><div class="placard" style="left:${l}%;top:${t + h + 2}%"><b>${name}</b>1 hr 43 min</div>`).join('');
+  const isl = document.getElementById('isl');
+  const order = [0, 1, 0, 2, 0, 4, 0, 3];
+  let k = 0;
+  setInterval(() => { k = (k + 1) % order.length; isl.dataset.s = order[k]; }, 1700);
+  const turb = document.getElementById('turb');
+  let seed = 1;
+  setInterval(() => { seed = (seed % 6) + 1; turb.setAttribute('seed', seed); }, 130);
+</script>
+</body>
+</html>

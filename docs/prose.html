@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kaleido, prose</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #050404; color: #efe6d8; font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+  .sheet { max-width: 1180px; margin: 0 auto; padding: 48px 32px 90px; }
+  .sheet > h1 { margin: 0; font: italic 400 42px "Sitka Banner", Constantia, Georgia, serif; }
+  .sheet > p { margin: 6px 0 0; color: #8a8174; max-width: 760px; }
+  .key { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 18px 0 0; color: #8a8174; font-size: 13px; }
+  .key b { color: #efe6d8; font-weight: 500; }
+  .cap { display: flex; align-items: baseline; gap: 14px; margin: 54px 0 14px; }
+  .cap i { font: 600 12px "Cascadia Mono", Consolas, monospace; color: #6b6358; font-style: normal; }
+  .cap b { flex: none; white-space: nowrap; font: italic 400 26px "Sitka Banner", Constantia, Georgia, serif; }
+  .cap span { color: #8a8174; }
+  .screen { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #070605; container-type: inline-size; }
+
+  .scene { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(var(--s1, #f6a06b), var(--s2, #6b3b6e) 62%, var(--s3, #241433)); }
+  .scene::before { content: ""; position: absolute; width: 22%; aspect-ratio: 1; left: var(--sx, 58%); top: var(--sy, 30%); border-radius: 50%; background: var(--sun, #ffe2a8); opacity: .92; }
+  .scene::after { content: ""; position: absolute; inset: 0; background: var(--h2, #3d2150); clip-path: polygon(0 70%, 14% 56%, 27% 66%, 41% 50%, 56% 63%, 70% 52%, 84% 64%, 100% 55%, 100% 100%, 0 100%); }
+  .b { --s1:#8fd3e8; --s2:#2c6e8f; --s3:#0e2a3a; --sun:#fdf6d8; --h2:#123e52; --sx:18%; --sy:22%; }
+  .c { --s1:#c7e59a; --s2:#4f8a4b; --s3:#163220; --sun:#fff3c4; --h2:#24492b; --sx:70%; --sy:18%; }
+  .d { --s1:#2a2350; --s2:#141030; --s3:#05040e; --sun:#e9e6ff; --h2:#120f2c; --sx:76%; --sy:14%; }
+  .e { --s1:#ffd4c2; --s2:#e07a6a; --s3:#5a1f2c; --sun:#fff; --h2:#5c2030; --sx:30%; --sy:40%; }
+  .g { --s1:#ffb36b; --s2:#b8452e; --s3:#3a0f12; --sun:#fff1c9; --h2:#4a1414; --sx:62%; --sy:46%; }
+  .shade { position: absolute; inset: 0; background: linear-gradient(transparent 38%, rgba(5, 4, 3, 0.86)); }
+  .shade.full { background: rgba(8, 6, 4, 0.72); }
+
+  /* the sentence */
+  .say { position: absolute; left: 6%; right: 8%; bottom: 9%; font: 400 3.2cqi/1.38 "Sitka Banner", "Sitka Display", Constantia, Georgia, serif; color: rgba(255, 246, 232, 0.55); letter-spacing: -0.005em; }
+  .say.mid { top: 50%; bottom: auto; transform: translateY(-50%); text-align: center; left: 10%; right: 10%; font-size: 3.9cqi; }
+  .say.small { font-size: 2.5cqi; }
+  .w { position: relative; display: inline-block; color: #fff8eb; text-decoration: underline; text-decoration-color: rgba(255, 214, 160, 0.42); text-decoration-thickness: 0.09em; text-underline-offset: 0.2em; cursor: pointer; transition: text-shadow .3s, text-decoration-color .3s; }
+  .w.hot { text-shadow: 0 0 0.6em rgba(255, 214, 160, 0.55); text-decoration-color: #ffd9a0; }
+  .w.verb { font-style: italic; }
+  .w.quiet { color: rgba(255, 248, 235, 0.8); }
+  .title { color: #fff8eb; font-style: italic; }
+
+  /* a word you drag: frames gather under it */
+  .strip { position: absolute; left: 50%; top: 118%; display: flex; gap: 4px; transform: translateX(-50%); }
+  .strip i { position: relative; display: block; width: 3.4cqi; aspect-ratio: 16 / 9; border-radius: 2px; overflow: hidden; opacity: .45; }
+  .strip i.now { opacity: 1; outline: 1.5px solid #ffd9a0; outline-offset: 1px; }
+
+  /* a word with choices: they wait above and below it */
+  .wheel { position: relative; display: inline-block; }
+  .wheel .alt { position: absolute; left: 0; white-space: nowrap; color: rgba(255, 248, 235, 0.38); font-size: 0.78em; transition: opacity .3s, transform .3s; }
+  .wheel .up1 { bottom: 115%; } .wheel .up2 { bottom: 205%; color: rgba(255, 248, 235, 0.2); }
+  .wheel .dn1 { top: 118%; }
+
+  .hand { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #fff7e6; box-shadow: 0 0 10px 3px rgba(255, 230, 190, 0.9); z-index: 40; pointer-events: none; }
+  .hand::before { content: ""; position: absolute; left: 50%; top: 50%; width: 300px; height: 300px; margin: -150px 0 0 -150px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 214, 160, 0.14), transparent 62%); }
+
+  .photo { position: absolute; box-shadow: 0 30px 50px rgba(0,0,0,.7); overflow: hidden; }
+  .lamp { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(255, 205, 140, 0.28), rgba(255, 190, 120, 0.07) 45%, transparent 70%); pointer-events: none; }
+  .peek { position: absolute; width: 22%; aspect-ratio: 16 / 9; border-radius: 3px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,.7); opacity: 0; transition: opacity .4s; }
+  .peek.on { opacity: 1; }
+  .line { display: flex; height: 6px; border-radius: 4px; overflow: hidden; width: 60%; margin: 0 auto 4cqi; }
+  .line i { flex: 1; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1>Prose</h1>
+  <p>A new kind of interface. No buttons, sliders, icons or menus. The whole interface is one sentence about what's happening, and every control is a word in it. The film stays untouched underneath, and VLC still plays everything.</p>
+  <div class="key"><span><b>Click</b> a word to change it</span><span><b>Drag</b> a word to slide it</span><span><b>Scroll</b> on a word to step through its choices</span><span>Plain words are just words, <b>lit words</b> are controls</span></div>
+
+  <div class="cap"><i>01</i><b>Watching</b><span>Move your hand and the sentence fades up over the bottom of the film. It describes the moment, and each lit word is a control.</span></div>
+  <div class="screen">
+    <div class="scene c"></div><div class="shade"></div>
+    <div class="say"><span class="title">The Long Way North</span>, <span class="w" id="t1">41 minutes in</span>. <span class="w verb">Pause</span>. It's <span class="w" id="v1">loud</span>, in <span class="w">English</span>, at <span class="w">normal speed</span>.</div>
+    <div class="hand" style="left:61%;top:74%"></div>
+  </div>
+
+  <div class="cap"><i>02</i><b>Dragging a phrase</b><span>The time phrase is the seek bar. Pull it sideways and it rewrites itself while the film's own frames gather under it.</span></div>
+  <div class="screen">
+    <div class="scene b" id="scrubscene"></div><div class="shade"></div>
+    <div class="say"><span class="title">The Long Way North</span>, <span class="w hot" id="scrub">41 minutes in<span class="strip" id="strip"></span></span>. <span class="w verb">Pause</span>. It's <span class="w">loud</span>, in <span class="w">English</span>.</div>
+    <div class="hand" id="hand2" style="left:34%;top:76%"></div>
+  </div>
+
+  <div class="cap"><i>03</i><b>Choosing a word</b><span>Words with choices show them waiting above and below. Scroll to roll through them, the way a dial would.</span></div>
+  <div class="screen">
+    <div class="scene g"></div><div class="shade"></div>
+    <div class="say"><span class="title">Coral Season</span>, near the end. It's <span class="w">quiet</span>, in <span class="wheel"><span class="alt up2" id="a2">French</span><span class="alt up1" id="a1">Japanese</span><span class="w hot" id="a0">English</span><span class="alt dn1" id="a3">no words</span></span>, at <span class="w">normal speed</span>.</div>
+    <div class="hand" style="left:46%;top:80%"></div>
+  </div>
+
+  <div class="cap"><i>04</i><b>Turning it up</b><span>Volume is an adjective. Drag it and it walks through its own words, all the way past the limit VLC is famous for.</span></div>
+  <div class="screen">
+    <div class="scene e"></div><div class="shade"></div>
+    <div class="say"><span class="title">Night Drive</span>, an hour in. <span class="w verb">Pause</span>. It's <span class="w hot" id="vol">loud</span>, in <span class="w">English</span>, at <span class="w">normal speed</span>.</div>
+    <div class="hand" id="hand4" style="left:40%;top:80%"></div>
+  </div>
+
+  <div class="cap"><i>05</i><b>Paused</b><span>The lights come up and the sentence moves to the middle of the room. It says where you are in words you'd use yourself.</span></div>
+  <div class="screen">
+    <div class="scene c" style="filter:sepia(.3) brightness(.5)"></div><div class="shade full"></div>
+    <div class="say mid">Paused at <span class="title">the river crossing</span>.<br><span class="w verb">Carry on</span>, <span class="w verb">go back a little</span>, or <span class="w verb">find a moment</span>.</div>
+  </div>
+
+  <div class="cap"><i>06</i><b>Reaching for more</b><span>Everything VLC hides in its menus is a sentence you can edit. Hover a lit word and its effect shows on the film.</span></div>
+  <div class="screen">
+    <div class="scene d"></div><div class="shade full"></div>
+    <div class="say mid small" style="text-align:left;left:12%;right:12%">The words are <span class="w hot">a little late</span>.<br>The sound is <span class="w">louder than loud</span>, with the <span class="w">bass</span> lifted.<br>The colours are <span class="w">warmer</span> and the picture is <span class="w">a bit brighter</span>.<br>It speaks <span class="w">Japanese</span>, and the words are <span class="w">large</span>.</div>
+  </div>
+
+  <div class="cap"><i>07</i><b>Coming back</b><span>Opening the app is a sentence too. Your last film waits under the lamp, and the sentence offers what makes sense right now.</span></div>
+  <div class="screen">
+    <div class="lamp" style="left:2%;top:-40%;width:70%;height:150%"></div>
+    <div class="photo" style="left:9%;top:12%;width:40%;aspect-ratio:16/9;transform:rotate(-1.5deg)"><div class="scene"></div></div>
+    <div class="say small" style="left:9%;right:44%;bottom:13%">You stopped <span class="title">The Long Way North</span> <span class="w">a little past the middle</span>. <span class="w verb">Carry on</span>, <span class="w verb">start over</span>, or <span class="w verb">watch something else</span>.</div>
+    <div class="say small" style="left:58%;right:6%;top:18%;bottom:auto;color:rgba(255,246,232,.42)">Also waiting:<br><span class="w quiet" id="lib1">Tide Pools</span>, the next one.<br><span class="w quiet" id="lib2">Night Drive</span>, half watched.<br>Or <span class="w quiet">anything in Videos</span>, or <span class="w quiet">a file</span>.</div>
+    <div class="peek" id="peek" style="right:6%;bottom:9%"><div class="scene b"></div></div>
+  </div>
+
+  <div class="cap"><i>08</i><b>The end</b><span>The film is over, so the sentence tells the story of your watching and offers the next one.</span></div>
+  <div class="screen">
+    <div class="lamp" style="left:20%;top:-30%;width:60%;height:140%"></div>
+    <div class="say mid">
+      <div class="line" id="line"></div>
+      That was <span class="title">The Long Way North</span>. You stopped <span class="w">three times</span>.<br><span class="title">Tide Pools</span> is next, <span class="w" id="count">in ten seconds</span>. <span class="w verb">Not now</span>.
+    </div>
+  </div>
+</div>
+
+<script>
+  const kinds = ['', 'b', 'c', 'd', 'e', 'g'];
+  const strip = document.getElementById('strip');
+  strip.innerHTML = Array.from({ length: 9 }, (_, i) => `<i class="${i === 4 ? 'now' : ''}"><span class="scene ${kinds[(i + 1) % 6]}"></span></i>`).join('');
+  const phrases = ['41 minutes in', '44 minutes in', '48 minutes in', 'about 50 minutes in', 'nearly an hour in', 'an hour in', 'nearly an hour in', 'about 50 minutes in', '44 minutes in'];
+  const scenes = ['b', 'b', 'c', 'c', 'd', 'd', 'd', 'c', 'b'];
+  const scrub = document.getElementById('scrub');
+  const sc = document.getElementById('scrubscene');
+  const hand2 = document.getElementById('hand2');
+  let k = 0;
+  setInterval(() => {
+    k = (k + 1) % phrases.length;
+    scrub.firstChild.textContent = phrases[k];
+    sc.className = 'scene ' + scenes[k];
+    hand2.style.left = (34 + Math.sin(k / phrases.length * Math.PI * 2 - 1.5) * 4 + 4) + '%';
+  }, 650);
+
+  const langs = ['English', 'Japanese', 'French', 'Spanish', 'no words'];
+  let li = 0;
+  const show = () => {
+    const at = n => langs[(li + n + langs.length) % langs.length];
+    document.getElementById('a0').textContent = at(0);
+    document.getElementById('a1').textContent = at(1);
+    document.getElementById('a2').textContent = at(2);
+    document.getElementById('a3').textContent = at(-1);
+  };
+  setInterval(() => { li = (li + 1) % langs.length; show(); }, 1500);
+
+  const vols = ['silent', 'whispering', 'quiet', 'soft', 'normal', 'loud', 'very loud', 'louder than loud', 'as loud as it goes', 'louder than loud', 'very loud', 'loud', 'normal', 'soft'];
+  let vi = 5;
+  const vol = document.getElementById('vol');
+  setInterval(() => { vi = (vi + 1) % vols.length; vol.textContent = vols[vi]; vol.style.textShadow = `0 0 ${0.3 + vi * 0.08}em rgba(255, 214, 160, ${Math.min(0.9, 0.2 + vi * 0.07)})`; }, 700);
+
+  const peek = document.getElementById('peek');
+  const l1 = document.getElementById('lib1'), l2 = document.getElementById('lib2');
+  let pk = 0;
+  setInterval(() => {
+    pk = (pk + 1) % 3;
+    l1.classList.toggle('hot', pk === 1); l2.classList.toggle('hot', pk === 2);
+    peek.classList.toggle('on', pk > 0);
+    peek.firstElementChild.className = 'scene ' + (pk === 2 ? 'e' : 'b');
+  }, 1600);
+
+  const pal = [[246,160,107],[107,59,110],[143,211,232],[44,110,143],[199,229,154],[79,138,75],[42,35,80],[255,212,194],[224,122,106],[255,179,107]];
+  let h = '';
+  for (let i = 0; i < 140; i++) { const a = pal[Math.floor(i / 14) % pal.length], b = pal[(Math.floor(i / 14) + 1) % pal.length], f = (i % 14) / 14; h += `<i style="background:rgb(${a.map((v, n) => Math.round(v + (b[n] - v) * f))})"></i>`; }
+  document.getElementById('line').innerHTML = h;
+  const nums = ['ten', 'nine', 'eight', 'seven', 'six', 'five', 'four', 'three', 'two', 'one'];
+  let ci = 0;
+  const count = document.getElementById('count');
+  setInterval(() => { ci = (ci + 1) % nums.length; count.textContent = `in ${nums[ci]} second${nums[ci] === 'one' ? '' : 's'}`; }, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "kaleido",
+  "productName": "Kaleido",
+  "version": "0.1.0",
+  "description": "A plays-everything video player with swappable skins",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:engine": "cargo build --release --manifest-path engine/Cargo.toml",
+    "fetch:vlc": "node scripts/fetch-vlc.js",
+    "setup": "npm run fetch:vlc && npm run build:engine"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^44.9.0"
+  }
+}

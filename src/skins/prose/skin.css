@@ -1,0 +1,121 @@
+/* Prose: a dark room, a warm lamp, and one sentence. Plain words are just words, lit words are controls. */
+:root[data-skin="prose"] {
+  --k-bg: #070605;
+  --k-fg: #efe6d8;
+  --k-muted: rgba(239, 230, 216, 0.55);
+  --k-faint: rgba(239, 230, 216, 0.12);
+  --k-accent: #ffd9a0;
+  --k-accent-fg: #1a1205;
+  --k-panel: rgba(14, 11, 8, 0.97);
+  --k-panel-2: rgba(255, 240, 220, 0.07);
+  --k-font: "Sitka Text", Constantia, Georgia, serif;
+  --k-display: "Sitka Banner", Constantia, Georgia, serif;
+  --pr-serif: "Sitka Banner", "Sitka Display", Constantia, Georgia, serif;
+  --pr-plain: rgba(255, 246, 232, 0.56);
+  --pr-lit: #fff8eb;
+  --pr-line: rgba(255, 214, 160, 0.42);
+  --pr-glow: rgba(255, 214, 160, 0.55);
+}
+[data-skin="prose"] .k-osd, [data-skin="prose"] .k-spinner, [data-skin="prose"] .k-error { display: none !important; }
+
+.pr { position: absolute; inset: 0; overflow: hidden; background: #070605; }
+.pr .k-stage { position: absolute; inset: 0; transition: filter 1.4s ease, opacity 0.9s ease; }
+
+/* house lights: the film dims and warms whenever the sentence takes the middle of the room */
+.pr[data-view="paused"] .k-stage, .pr[data-view="ended"] .k-stage, .pr[data-view="ending"] .k-stage,
+.pr[data-view="reach"] .k-stage, .pr[data-view="find"] .k-stage, .pr[data-view="error"] .k-stage { filter: brightness(0.36) sepia(0.28) saturate(0.85); }
+.pr[data-view="home"] .k-stage { opacity: 0.14; filter: blur(6px) brightness(0.6); }
+.pr-lamp { position: absolute; left: 50%; top: 50%; width: 90vmax; height: 90vmax; margin: -45vmax 0 0 -45vmax; border-radius: 50%; background: radial-gradient(circle, rgba(255, 205, 140, 0.2), rgba(255, 190, 120, 0.05) 42%, transparent 68%); opacity: 0; transition: opacity 1.4s ease, transform 1.4s ease; pointer-events: none; }
+.pr:not([data-view="watching"]) .pr-lamp { opacity: 1; }
+.pr[data-view="home"] .pr-lamp { transform: translate(-22vw, -10vh); }
+.pr-shade { position: absolute; inset: 0; background: linear-gradient(transparent 45%, rgba(5, 4, 3, 0.82)); opacity: 0; transition: opacity 0.6s; pointer-events: none; }
+.pr[data-view="watching"] .pr-shade { opacity: 1; }
+body.k-idle .pr[data-view="watching"] .pr-shade { opacity: 0; }
+
+.pr-layer { position: absolute; inset: 0; pointer-events: none; }
+.pr-layer > * { animation: pr-in 0.7s ease both; }
+@keyframes pr-in { from { opacity: 0; transform: translateY(6px); } }
+.pr-layer > .pr-mid { animation-name: pr-in-mid; }
+@keyframes pr-in-mid { from { opacity: 0; transform: translateY(calc(-50% + 8px)); } }
+
+/* ---------- the sentence ---------- */
+.pr-say { position: absolute; font: 400 var(--pr-size, 30px) / 1.42 var(--pr-serif); color: var(--pr-plain); letter-spacing: -0.003em; text-shadow: 0 1px 18px rgba(0, 0, 0, 0.55); }
+.pr-low { left: 5.5%; right: 9%; bottom: 7.5%; --pr-size: clamp(18px, 2.25vw, 36px); transition: opacity 0.55s ease, transform 0.55s ease; }
+body.k-idle .pr-low { opacity: 0; transform: translateY(10px); }
+.pr-mid { left: 9%; right: 9%; top: 50%; transform: translateY(-50%); text-align: center; --pr-size: clamp(22px, 3vw, 46px); }
+.pr-static { position: static; }
+.pr-small { display: block; margin-top: 1.2em; font-size: 0.6em; }
+.pr-next { display: block; font-size: 0.66em; margin-top: 0.5em; }
+.pt { color: var(--pr-lit); font-style: italic; }
+
+.pw { position: relative; display: inline; pointer-events: auto; color: var(--pr-lit); cursor: pointer; outline: none; text-decoration: underline; text-decoration-color: var(--pr-line); text-decoration-thickness: 0.07em; text-underline-offset: 0.2em; transition: text-shadow 0.25s, text-decoration-color 0.25s, color 0.25s; -webkit-app-region: no-drag; white-space: nowrap; }
+.pw:hover, .pw:focus-visible, .pw.pw-drag, .pw.pw-open { text-shadow: 0 0 0.6em var(--pr-glow), 0 1px 18px rgba(0, 0, 0, 0.55); text-decoration-color: #ffd9a0; }
+.pw-verb { font-style: italic; }
+.pw.pw-drag { cursor: ew-resize; }
+.pw.pw-open { color: transparent; text-shadow: none; text-decoration-color: transparent; }
+.pw-soft { color: rgba(255, 248, 235, 0.82); }
+.pr-quiet { opacity: 0.6; }
+
+/* the wheel of choices, laid over the word it belongs to */
+.pr-wheel { position: fixed; z-index: 800; pointer-events: auto; color: var(--pr-plain); }
+.pr-opt { position: absolute; left: 0; top: 0; white-space: nowrap; cursor: pointer; transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.28s; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.9); }
+.pr-opt.pr-on { color: var(--pr-lit); text-decoration: underline; text-decoration-color: #ffd9a0; text-decoration-thickness: 0.07em; text-underline-offset: 0.2em; text-shadow: 0 0 0.6em var(--pr-glow), 0 2px 16px rgba(0, 0, 0, 0.9); }
+.pr-opt:hover { color: var(--pr-lit); }
+
+/* frames that gather under the time phrase while it is dragged */
+.pr-strip { position: absolute; left: 50%; bottom: 1.5em; display: flex; gap: 6px; transform: translateX(-50%); pointer-events: none; }
+.pr-strip img { width: clamp(60px, 7vw, 120px); aspect-ratio: 16 / 9; object-fit: cover; border-radius: 3px; background: #1a1612; opacity: 0.5; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6); }
+.pr-strip img.pr-now { opacity: 1; outline: 2px solid #ffd9a0; outline-offset: 2px; }
+
+/* ---------- window words ---------- */
+.pr-top { position: absolute; top: 0; left: 0; right: 0; height: 46px; z-index: 50; display: flex; align-items: center; justify-content: flex-end; gap: 22px; padding: 0 24px; -webkit-app-region: drag; font: italic 400 15px var(--pr-serif); color: var(--pr-plain); transition: opacity 0.55s; }
+.pr-top .pw { font-size: 15px; color: rgba(255, 248, 235, 0.62); text-decoration-color: rgba(255, 214, 160, 0.22); }
+body.k-idle .pr-top { opacity: 0; }
+
+.pr-whisper { position: absolute; left: 0; right: 0; top: 8%; z-index: 45; text-align: center; font: italic 400 clamp(16px, 1.6vw, 24px) var(--pr-serif); color: rgba(255, 246, 232, 0.8); text-shadow: 0 2px 14px rgba(0, 0, 0, 0.85); opacity: 0; transition: opacity 0.35s; pointer-events: none; }
+.pr-whisper.pr-on { opacity: 1; }
+
+/* ---------- coming back ---------- */
+.pr-home { position: absolute; inset: 0; pointer-events: auto; }
+.pr-home-main { position: absolute; left: 7%; top: 13%; width: 45%; display: flex; flex-direction: column; gap: 4.5vh; --pr-size: clamp(18px, 2vw, 32px); }
+.pr-home-main .pr-say { font-size: var(--pr-size); }
+.pr-photo { width: 100%; aspect-ratio: 16 / 9; transform: rotate(-1.4deg); background: #15110d; box-shadow: 0 34px 60px rgba(0, 0, 0, 0.7); overflow: hidden; }
+.pr-photo-img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity 0.8s; }
+.pr-photo-img.k-loaded { opacity: 1; }
+.pr-side { position: absolute; left: 59%; right: 6%; top: 15%; bottom: 12%; overflow-y: auto; font: 400 clamp(16px, 1.45vw, 23px) / 1.85 var(--pr-serif); color: rgba(255, 246, 232, 0.42); padding-right: 8px; }
+.pr-side.pr-side-wide { left: 20%; right: 20%; top: 62%; bottom: 6%; text-align: center; }
+.pr-side-head { margin-bottom: 0.3em; }
+.pr-line-item { white-space: normal; }
+.pr-tail { margin-top: 0.6em; }
+.pr-back { position: absolute; left: 7%; top: 5%; font: 400 clamp(16px, 1.45vw, 22px) var(--pr-serif); color: var(--pr-plain); }
+.pr-peek { position: absolute; right: 6%; bottom: 7%; width: 24%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 2px; box-shadow: 0 24px 44px rgba(0, 0, 0, 0.7); opacity: 0; transform: translateY(8px) rotate(1deg); transition: opacity 0.35s, transform 0.35s; pointer-events: none; z-index: 5; }
+.pr-peek.pr-on { opacity: 1; transform: rotate(1deg); }
+.pr-peek-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pr:not([data-view="home"]) .pr-peek { display: none; }
+
+/* ---------- the end ---------- */
+.pr-colours { position: relative; display: flex; height: 8px; width: min(62%, 760px); margin: 0 auto 1.3em; border-radius: 5px; overflow: visible; opacity: 0; transition: opacity 1.2s; }
+.pr-colours.pr-on { opacity: 1; }
+.pr-colours i { flex: 1; height: 100%; }
+.pr-colours i:first-child { border-radius: 5px 0 0 5px; }
+.pr-colours i:last-of-type { border-radius: 0 5px 5px 0; }
+.pr-colours b { position: absolute; top: -9px; width: 2px; height: 26px; margin-left: -1px; background: #fff7e6; border-radius: 1px; }
+
+/* ---------- find a moment ---------- */
+.pr-find { position: absolute; inset: 0; pointer-events: auto; display: flex; flex-direction: column; background: rgba(7, 6, 5, 0.78); }
+.pr-find-head { padding: 9vh 7% 0; text-align: center; --pr-size: clamp(18px, 2vw, 30px); font-size: var(--pr-size); }
+.pr-field { flex: 1; display: grid; grid-template-columns: repeat(8, 1fr); gap: clamp(8px, 1.2vw, 18px); padding: 4vh 6% 8vh; align-content: center; }
+.pr-patch { position: relative; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden; background: #1c1712; cursor: pointer; filter: blur(11px) brightness(0.55); }
+.pr-patch img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity 0.6s; }
+.pr-patch.pr-loaded img { opacity: 1; }
+.pr-patch-label { position: fixed; transform: translateX(-50%); font: italic 400 clamp(14px, 1.2vw, 18px) var(--pr-serif); color: var(--pr-lit); text-shadow: 0 2px 12px #000; white-space: nowrap; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 5; }
+.pr-patch-label.pr-on { opacity: 1; }
+
+/* ---------- reaching for more ---------- */
+.pr-reach { position: absolute; inset: 0; pointer-events: auto; display: flex; align-items: center; justify-content: center; }
+.pr-reach-text { --pr-size: clamp(17px, 1.95vw, 30px); font-size: var(--pr-size); line-height: 1.75; max-width: 78%; }
+.pr-reach-line { white-space: normal; }
+
+/* shared dialogs and menus speak in the same voice */
+[data-skin="prose"] .k-dialog, [data-skin="prose"] .k-palette, [data-skin="prose"] .k-shortcuts, [data-skin="prose"] .k-menu { border-radius: 4px; }
+[data-skin="prose"] .k-dialog h3 { font: italic 400 24px var(--pr-serif); }

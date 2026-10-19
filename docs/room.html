@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kaleido, the room</title>
+<style>
+  @property --cx { syntax: '<percentage>'; inherits: true; initial-value: 30%; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #050404; color: #efe6d8; font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+  .sheet { max-width: 1180px; margin: 0 auto; padding: 48px 32px 90px; }
+  .sheet > h1 { margin: 0; font: italic 400 40px "Sitka Banner", Constantia, Georgia, serif; letter-spacing: -0.01em; }
+  .sheet > p { margin: 6px 0 10px; color: #8a8174; max-width: 720px; }
+  .cap { display: flex; align-items: baseline; gap: 14px; margin: 54px 0 14px; }
+  .cap i { font: 600 12px "Cascadia Mono", Consolas, monospace; color: #6b6358; font-style: normal; }
+  .cap b { flex: none; white-space: nowrap; font: italic 400 26px "Sitka Banner", Constantia, Georgia, serif; }
+  .cap span { color: #8a8174; }
+  .screen { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #070605; }
+  .words { font: italic 400 15px "Sitka Text", Constantia, Georgia, serif; color: rgba(239, 230, 216, 0.82); }
+
+  /* the painted film frame */
+  .scene { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(var(--s1, #f6a06b), var(--s2, #6b3b6e) 62%, var(--s3, #241433)); }
+  .scene::before { content: ""; position: absolute; width: 22%; aspect-ratio: 1; left: var(--sx, 58%); top: var(--sy, 34%); border-radius: 50%; background: var(--sun, #ffe2a8); opacity: .92; }
+  .scene::after { content: ""; position: absolute; inset: 0; background: var(--h2, #3d2150); clip-path: polygon(0 70%, 14% 56%, 27% 66%, 41% 50%, 56% 63%, 70% 52%, 84% 64%, 100% 55%, 100% 100%, 0 100%); }
+  .b { --s1:#8fd3e8; --s2:#2c6e8f; --s3:#0e2a3a; --sun:#fdf6d8; --h2:#123e52; --sx:18%; --sy:22%; }
+  .c { --s1:#c7e59a; --s2:#4f8a4b; --s3:#163220; --sun:#fff3c4; --h2:#24492b; --sx:70%; --sy:18%; }
+  .d { --s1:#2a2350; --s2:#141030; --s3:#05040e; --sun:#e9e6ff; --h2:#120f2c; --sx:76%; --sy:14%; }
+  .e { --s1:#ffd4c2; --s2:#e07a6a; --s3:#5a1f2c; --sun:#fff; --h2:#5c2030; --sx:30%; --sy:40%; }
+  .f { --s1:#e9e3cf; --s2:#b8a77d; --s3:#4f4330; --sun:#fffbe9; --h2:#4d412c; --sx:48%; --sy:26%; }
+  .g { --s1:#ffb36b; --s2:#b8452e; --s3:#3a0f12; --sun:#fff1c9; --h2:#4a1414; --sx:62%; --sy:46%; }
+
+  /* the hand: a small light */
+  .hand { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #fff7e6; box-shadow: 0 0 10px 3px rgba(255, 230, 190, 0.9); z-index: 40; pointer-events: none; }
+  .hand::before { content: ""; position: absolute; left: 50%; top: 50%; width: 420px; height: 420px; margin: -210px 0 0 -210px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 214, 160, 0.16), transparent 62%); }
+
+  /* 01 coming back */
+  .lamp { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(255, 205, 140, 0.30), rgba(255, 190, 120, 0.08) 45%, transparent 70%); pointer-events: none; }
+  .photo { position: absolute; box-shadow: 0 30px 50px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04); overflow: hidden; }
+  .far { filter: blur(5px) brightness(0.35) saturate(0.7); transition: filter 0.6s; }
+  .back1 .far, .s1hand { animation: none; }
+  .s1 .hand { animation: s1hand 7s ease-in-out infinite; }
+  @keyframes s1hand { 0%, 100% { left: 46%; top: 82%; } 45%, 60% { left: 84%; top: 30%; } }
+  .s1 .near { animation: wake 7s ease-in-out infinite; }
+  @keyframes wake { 0%, 25%, 85%, 100% { filter: blur(5px) brightness(0.35) saturate(0.7); } 45%, 62% { filter: blur(0.5px) brightness(0.9) saturate(1); } }
+
+  /* 02 watching */
+  .moments { position: absolute; left: 0; right: 0; bottom: 4%; height: 16%; display: flex; gap: 8px; justify-content: center; -webkit-mask-image: radial-gradient(circle 190px at var(--cx) 60%, #000 30%, transparent 100%); animation: cx 8s ease-in-out infinite; }
+  .moments .m { position: relative; height: 100%; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden; box-shadow: 0 6px 18px rgba(0,0,0,.6); }
+  .moments .m.now { outline: 2px solid #fff7e6; outline-offset: 2px; }
+  @keyframes cx { 0%, 100% { --cx: 22%; } 50% { --cx: 64%; } }
+  .s2 .hand { animation: s2hand 8s ease-in-out infinite; }
+  @keyframes s2hand { 0%, 100% { left: 22%; top: 70%; } 50% { left: 64%; top: 72%; } }
+
+  /* 03 paused */
+  .warmroom { position: absolute; inset: 0; background: radial-gradient(ellipse at 52% 40%, #3a2717, #120c08 70%); }
+  .held { position: absolute; left: 30%; top: 11%; width: 52%; aspect-ratio: 16 / 9; transform: rotate(-1.4deg); box-shadow: 0 34px 60px rgba(0,0,0,.65); filter: sepia(0.28) saturate(0.9) brightness(0.96); }
+  .held .scene { border: 6px solid #f3ead9; }
+  .justnow { position: absolute; left: 6%; top: 18%; width: 18%; display: flex; flex-direction: column; gap: 10px; }
+  .justnow .m { position: relative; aspect-ratio: 16 / 9; border-radius: 3px; overflow: hidden; }
+  .justnow .m:nth-child(1) { opacity: .35; } .justnow .m:nth-child(2) { opacity: .6; } .justnow .m:nth-child(3) { opacity: .9; }
+  .glass { position: absolute; left: 30%; top: 78%; width: 52%; height: 4px; border-radius: 4px; background: rgba(255, 220, 170, 0.12); overflow: hidden; }
+  .glass i { position: absolute; left: 0; top: 0; bottom: 0; width: 58%; background: linear-gradient(90deg, rgba(255, 214, 160, 0.3), #ffd9a0); }
+  .s3 .cap-under { position: absolute; left: 30%; top: 82%; }
+
+  /* 04 pull and push */
+  .reel { position: absolute; left: 50%; top: 50%; display: flex; align-items: center; gap: 18px; transform: translate(-50%, -50%); animation: pull 6s ease-in-out infinite; }
+  @keyframes pull { 0%, 100% { transform: translate(-50%, -50%); } 45%, 55% { transform: translate(calc(-50% + 160px), -50%); } }
+  .reel .m { position: relative; flex: none; width: 150px; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden; opacity: .45; filter: brightness(.7); }
+  .reel .m.big { width: 46vw; max-width: 520px; opacity: 1; filter: none; box-shadow: 0 30px 60px rgba(0,0,0,.7); }
+  .reel .m.mid { width: 220px; opacity: .7; }
+  .s4 .hand { left: 50%; top: 52%; animation: grab 6s ease-in-out infinite; }
+  @keyframes grab { 0%, 100% { left: 50%; transform: scale(1); } 10% { transform: scale(.7); } 45%, 55% { left: calc(50% + 160px); transform: scale(.7); } 90% { transform: scale(1); } }
+  .count { position: absolute; bottom: 7%; display: flex; gap: 5px; }
+  .count i { width: 4px; height: 4px; border-radius: 50%; background: rgba(255, 220, 170, 0.35); }
+
+  /* 05 remembering */
+  .field { position: absolute; inset: 6% 5%; display: grid; grid-template-columns: repeat(8, 1fr); gap: 14px; align-content: center; }
+  .patch { position: relative; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; filter: blur(12px) brightness(.55); }
+
+  /* 06 reaching */
+  .ringof { position: absolute; left: 62%; top: 56%; width: 0; height: 0; z-index: 30; }
+  .ringof span { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font: italic 400 16px "Sitka Text", Constantia, Georgia, serif; color: #fff4e2; text-shadow: 0 2px 14px #000, 0 0 2px #000; opacity: 0; animation: bloom 5s ease-out infinite; }
+  .ringof span small { display: block; text-align: center; font: 500 10px "Cascadia Mono", monospace; color: rgba(255, 228, 190, .7); font-style: normal; }
+  @keyframes bloom { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); } 12%, 85% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; } }
+  .dimfilm { filter: brightness(.55); }
+
+  /* 07 near and far */
+  .breathe { position: absolute; left: 50%; top: 50%; width: 70%; aspect-ratio: 16 / 9; transform: translate(-50%, -50%) scale(.62); box-shadow: 0 40px 80px rgba(0,0,0,.7); animation: near 6s ease-in-out infinite; border-radius: 4px; overflow: hidden; }
+  @keyframes near { 0%, 100% { transform: translate(-50%, -50%) scale(.62); filter: brightness(.7); } 50% { transform: translate(-50%, -50%) scale(1.18); filter: brightness(1); } }
+  .halo { position: absolute; left: 76%; top: 74%; width: 60px; height: 60px; margin: -30px; border-radius: 50%; border: 2px solid rgba(255, 228, 190, .7); animation: halo 6s ease-in-out infinite; z-index: 41; }
+  @keyframes halo { 0%, 100% { transform: scale(.7); opacity: .5; } 50% { transform: scale(2.1); opacity: 1; } }
+  .s7 .hand { left: 76%; top: 74%; }
+
+  /* 08 the end */
+  .credits { position: absolute; left: 41%; top: 8%; width: 40%; aspect-ratio: 16 / 9; transform: translateX(-50%); background: #000; box-shadow: 0 30px 60px rgba(0,0,0,.7); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .credits i { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .5); }
+  .journey { position: absolute; left: 12%; right: 30%; top: 62%; height: 10px; border-radius: 6px; display: flex; overflow: hidden; }
+  .journey i { flex: 1; }
+  .pmarks { position: absolute; left: 12%; right: 30%; top: 62%; height: 10px; }
+  .pmarks b { position: absolute; top: -9px; width: 2px; height: 28px; background: #fff7e6; border-radius: 1px; }
+  .next { position: absolute; right: 6%; bottom: 13%; width: 18%; aspect-ratio: 16 / 9; transform: rotate(2deg); box-shadow: 0 20px 40px rgba(0,0,0,.7); overflow: hidden; }
+
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1>The room</h1>
+  <p>One player. The room goes dark, the film is the only thing lit, and your cursor is a small light. VLC plays everything underneath. These are its screens.</p>
+
+  <!-- 01 -->
+  <div class="cap"><i>01</i><b>Coming back</b><span>The last thing you saw is waiting under the lamp. Everything else you've watched sits further back in the dark until your light reaches it.</span></div>
+  <div class="screen s1">
+    <div class="lamp" style="left:2%;top:-30%;width:80%;height:150%"></div>
+    <div class="photo far" style="left:70%;top:14%;width:20%;aspect-ratio:16/9"><div class="scene b"></div></div>
+    <div class="photo far near" style="left:78%;top:44%;width:16%;aspect-ratio:16/9"><div class="scene c"></div></div>
+    <div class="photo far" style="left:4%;top:8%;width:14%;aspect-ratio:16/9"><div class="scene d"></div></div>
+    <div class="photo far" style="left:6%;top:70%;width:16%;aspect-ratio:16/9"><div class="scene e"></div></div>
+    <div class="photo" style="left:21%;top:16%;width:44%;aspect-ratio:16/9;transform:rotate(-1.5deg)"><div class="scene"></div></div>
+    <div class="words" style="position:absolute;left:22%;top:72%;font-size:20px">You stopped here.</div>
+    <div class="words" style="position:absolute;left:22%;top:79%;color:rgba(239,230,216,.5)">A little past the middle. The storm hadn't started yet.</div>
+    <div class="hand"></div>
+  </div>
+
+  <!-- 02 -->
+  <div class="cap"><i>02</i><b>Watching</b><span>Only the film. No bar ever sits over it. When your light drifts low, the film's own moments show up under your hand and nowhere else.</span></div>
+  <div class="screen s2">
+    <div class="scene c"></div>
+    <div class="moments">
+      <div class="m"><div class="scene b"></div></div><div class="m"><div class="scene b"></div></div><div class="m"><div class="scene c"></div></div>
+      <div class="m now"><div class="scene c"></div></div><div class="m"><div class="scene c"></div></div><div class="m"><div class="scene d"></div></div>
+      <div class="m"><div class="scene d"></div></div><div class="m"><div class="scene e"></div></div><div class="m"><div class="scene g"></div></div>
+    </div>
+    <div class="hand"></div>
+  </div>
+
+  <!-- 03 -->
+  <div class="cap"><i>03</i><b>Holding it</b><span>Press and hold anywhere to stop. The house lights come up, the picture settles like a photograph, and the last few moments you just saw sit beside it.</span></div>
+  <div class="screen s3">
+    <div class="warmroom"></div>
+    <div class="lamp" style="left:20%;top:-40%;width:70%;height:140%"></div>
+    <div class="justnow"><div class="m"><div class="scene b"></div></div><div class="m"><div class="scene c"></div></div><div class="m"><div class="scene c"></div></div></div>
+    <div class="held"><div class="scene c"></div></div>
+    <div class="glass"><i></i></div>
+    <div class="words cap-under">The Long Way North<span style="color:rgba(239,230,216,.45)">, more than half behind you</span></div>
+  </div>
+
+  <!-- 04 -->
+  <div class="cap"><i>04</i><b>Pull and push</b><span>Grab the picture. Pull it and the moments before it slide in. Push it and you go on. Time is made of the film's own frames, not a line with numbers.</span></div>
+  <div class="screen s4">
+    <div class="reel">
+      <div class="m"><div class="scene b"></div></div>
+      <div class="m"><div class="scene b"></div></div>
+      <div class="m mid"><div class="scene c"></div></div>
+      <div class="m big"><div class="scene c"></div></div>
+      <div class="m mid"><div class="scene d"></div></div>
+      <div class="m"><div class="scene d"></div></div>
+      <div class="m"><div class="scene e"></div></div>
+    </div>
+    <div class="count" style="left:6%"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="count" style="right:6%"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="hand"></div>
+  </div>
+
+  <!-- 05 -->
+  <div class="cap"><i>05</i><b>Remembering</b><span>You don't remember timestamps, you remember what it looked like. The whole film opens as a blur of colour, and each patch comes into focus as your light passes over it.</span></div>
+  <div class="screen s5">
+    <div class="field" id="field"></div>
+    <div class="hand" id="hand5"></div>
+  </div>
+
+  <!-- 06 -->
+  <div class="cap"><i>06</i><b>Reaching</b><span>Hold your hand still and the things you might want come to it. This is where VLC's buried powers live: sync, boost past the limit, colour, other voices.</span></div>
+  <div class="screen s6">
+    <div class="scene g dimfilm"></div>
+    <div class="ringof">
+      <span style="left:0;top:-96px;animation-delay:0s">Words<small>english</small></span>
+      <span style="left:120px;top:-44px;animation-delay:.05s">Voice<small>japanese</small></span>
+      <span style="left:118px;top:58px;animation-delay:.1s">Slower, faster<small>1.25</small></span>
+      <span style="left:0;top:104px;animation-delay:.15s">Louder than loud<small>up to 200</small></span>
+      <span style="left:-124px;top:56px;animation-delay:.2s">Words are late<small>sync them</small></span>
+      <span style="left:-122px;top:-46px;animation-delay:.25s">Colour<small>warmer, brighter</small></span>
+    </div>
+    <div class="hand" style="left:62%;top:56%"></div>
+  </div>
+
+  <!-- 07 -->
+  <div class="cap"><i>07</i><b>Near and far</b><span>Scroll and the picture comes closer and gets louder, or drifts back into the dark and gets quieter. The ring around your light says how much.</span></div>
+  <div class="screen s7">
+    <div class="breathe"><div class="scene e"></div></div>
+    <div class="halo"></div>
+    <div class="hand"></div>
+  </div>
+
+  <!-- 08 -->
+  <div class="cap"><i>08</i><b>The end</b><span>When the credits start, the lights come up. The whole film lies there as one line of its colours, marked where you stopped along the way. The next one is already on the table.</span></div>
+  <div class="screen s8">
+    <div class="warmroom"></div>
+    <div class="lamp" style="left:52%;top:20%;width:60%;height:120%"></div>
+    <div class="credits"><i style="width:40%"></i><i style="width:26%"></i><i style="width:34%"></i><i style="width:20%;margin-top:6px"></i><i style="width:30%"></i></div>
+    <div class="journey" id="journey"></div>
+    <div class="pmarks"><b style="left:22%"></b><b style="left:57%"></b><b style="left:81%"></b></div>
+    <div class="words" style="position:absolute;left:12%;top:74%;width:50%;color:rgba(239,230,216,.55)">You stopped three times. Once at the camp, once in the storm, once right before the end.</div>
+    <div class="next"><div class="scene b"></div></div>
+    <div class="words" style="position:absolute;right:6%;bottom:4%;font-size:13px">Next, the second part</div>
+  </div>
+</div>
+
+<script>
+  const kinds = ['', 'b', 'c', 'd', 'e', 'f', 'g'];
+  const field = document.getElementById('field');
+  const order = [0,0,1,1,1,2,2,3,3,3,4,4,6,6,5,5,0,2,2,3,1,1,6,6,4,4,4,5,0,0,3,2,2,6,1,1,5,5,4,3];
+  field.innerHTML = order.map(k => `<div class="patch"><div class="scene ${kinds[k]}"></div></div>`).join('');
+  const patches = [...field.children];
+  const hand = document.getElementById('hand5');
+  const screen5 = field.parentElement;
+  let t = 0;
+  (function loop() {
+    t += 0.006;
+    const x = 50 + 36 * Math.sin(t * 1.3), y = 50 + 26 * Math.sin(t * 2.1);
+    hand.style.left = x + '%'; hand.style.top = y + '%';
+    const r = screen5.getBoundingClientRect();
+    const hx = r.left + r.width * x / 100, hy = r.top + r.height * y / 100;
+    for (const p of patches) {
+      const b = p.getBoundingClientRect();
+      const d = Math.hypot(b.left + b.width / 2 - hx, b.top + b.height / 2 - hy) / r.width;
+      const k = Math.min(1, d / 0.22);
+      p.style.filter = `blur(${(k * 12).toFixed(1)}px) brightness(${(1 - k * 0.5).toFixed(2)})`;
+    }
+    requestAnimationFrame(loop);
+  })();
+  const pal = [[246,160,107],[107,59,110],[143,211,232],[44,110,143],[199,229,154],[79,138,75],[42,35,80],[20,16,48],[255,212,194],[224,122,106],[255,179,107],[184,69,46]];
+  const j = document.getElementById('journey');
+  let h = '';
+  for (let i = 0; i < 160; i++) { const a = pal[Math.floor(i / 14) % pal.length], b = pal[(Math.floor(i / 14) + 1) % pal.length], f = (i % 14) / 14; h += `<i style="background:rgb(${a.map((v, n) => Math.round(v + (b[n] - v) * f))})"></i>`; }
+  j.innerHTML = h;
+</script>
+</body>
+</html>
