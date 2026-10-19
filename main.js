@@ -1,6 +1,6 @@
 // Kaleido main process: window, the libVLC engine process, dialogs and persistence.
 // Playback itself happens in engine/ (Rust + libVLC); this file only supervises it.
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -306,6 +306,30 @@ ipcMain.handle('win:resize', (e, w, h) => {
   if (win.isFullScreen() || win.isMaximized()) return;
   win.setContentSize(Math.max(420, Math.round(w)), Math.max(260, Math.round(h)), true);
 });
+// Mini player: a small always-on-top window in the corner of the screen it is on, and back again.
+let beforeMini = null;
+ipcMain.handle('win:mini', (e, on) => {
+  if (on && !beforeMini) {
+    if (win.isFullScreen()) win.setFullScreen(false);
+    beforeMini = { bounds: win.getBounds(), maximized: win.isMaximized(), top: win.isAlwaysOnTop() };
+    if (beforeMini.maximized) win.unmaximize();
+    const area = screen.getDisplayMatching(win.getBounds()).workArea;
+    const w = 480, h = 270;
+    win.setMinimumSize(320, 180);
+    win.setAlwaysOnTop(true, 'floating');
+    win.setBounds({ x: area.x + area.width - w - 24, y: area.y + area.height - h - 24, width: w, height: h }, true);
+    return true;
+  }
+  if (!on && beforeMini) {
+    const b = beforeMini;
+    beforeMini = null;
+    win.setMinimumSize(420, 260);
+    win.setAlwaysOnTop(b.top, 'floating');
+    win.setBounds(b.bounds, true);
+    if (b.maximized) win.maximize();
+  }
+  return false;
+});
 ipcMain.handle('win:state', () => ({ fullscreen: win.isFullScreen(), maximized: win.isMaximized(), alwaysOnTop: win.isAlwaysOnTop() }));
 
 // ---------- window ----------
@@ -325,6 +349,13 @@ function createWindow() {
   win.on('maximize', send('maximized', true));
   win.on('unmaximize', send('maximized', false));
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  // No application menu: its hidden accelerators (Ctrl+M minimise, Ctrl+R reload, Ctrl+plus zoom) would
+  // steal the player's own shortcuts. F12 still opens the developer tools when running from source.
+  if (!app.isPackaged) {
+    win.webContents.on('before-input-event', (e, input) => {
+      if (input.type === 'keyDown' && input.key === 'F12') win.webContents.toggleDevTools();
+    });
+  }
   win.webContents.on('will-navigate', e => e.preventDefault());
 }
 
@@ -362,6 +393,7 @@ else {
     if (files.length) win.webContents.send('open-files', files);
   });
   app.whenReady().then(() => {
+    Menu.setApplicationMenu(null);
     loadStore();
     startEngine();
     createWindow();

@@ -73,8 +73,9 @@ stage.addEventListener('click', e => {
   clickTimer = setTimeout(() => (engine.state.item ? engine.toggle() : engine.openDialog()), 220);
 });
 stage.addEventListener('dblclick', e => {
-  if (skinOpts.stageDoubleClick === false || e.target.closest('[data-k-hold]')) return;
   clearTimeout(clickTimer);
+  if (skinOpts.stageDoubleClick === false || e.target.closest('[data-k-hold]')) return;
+  if (current && current.handle && current.handle.onStageDoubleClick && current.handle.onStageDoubleClick(e)) return;
   engine.toggleFullscreen();
 });
 stage.addEventListener('wheel', e => {
@@ -152,6 +153,10 @@ function commands() {
     ['Cycle repeat', 'Shift+R', () => e.cycleRepeat()],
     ['Always on top', 'Ctrl+T', () => e.toggleAlwaysOnTop()],
     ['Picture in picture', 'Ctrl+P', () => e.togglePip()],
+    ['Mini player', 'Ctrl+M', () => e.toggleMini()],
+    ['Bookmark this moment', 'Ctrl+D', () => e.addMark()],
+    ['Next bookmark', 'Ctrl+.', () => e.jumpMark(1)],
+    ['Previous bookmark', 'Ctrl+;', () => e.jumpMark(-1)],
     ['Show playlist', 'Ctrl+L', () => shell.command('playlist')],
     ['Show effects (EQ, picture, sync)', 'Ctrl+E', () => shell.command('effects')],
     ['Show media info', 'Ctrl+I', () => shell.command('info')],
@@ -280,6 +285,7 @@ const shell = {
       ['Playback', [['Space or K', 'Play or pause'], ['S', 'Stop'], ['Left and Right', 'Back or forward 5s'], ['J and L', 'Back or forward 10s'], ['Shift+Left and Right', '1s'], ['Ctrl+Left and Right', '1 minute'], ['0 to 9', 'Jump to 0% to 90%'], ['Home', 'Start over'], ['E', 'Next frame'], ['[ and ]', 'Slower or faster'], ['=', 'Normal speed'], ['X', 'A to B loop']]],
       ['Sound and subtitles', [['Up and Down', 'Volume (up to 200%)'], ['M', 'Mute'], ['D', 'Night mode'], ['B', 'Next audio track'], ['V', 'Next subtitle track'], ['G and H', 'Subtitle delay'], ['Ctrl+G and Ctrl+H', 'Audio delay']]],
       ['Queue and picture', [['N and P', 'Next or previous file'], ['Page Up and Down', 'Chapters'], ['A', 'Aspect ratio'], ['Z and Shift+Z', 'Zoom, reset zoom'], ['Shift+S', 'Snapshot'], ['R and Shift+R', 'Shuffle, repeat']]],
+      ['Bookmarks and mini player', [['Ctrl+D', 'Bookmark this moment'], ['Ctrl+. and Ctrl+;', 'Next or previous bookmark'], ['Ctrl+M', 'Mini player'], ['Double click left or right', 'Back or forward 10s']]],
       ['Window', [['F or double click', 'Fullscreen'], ['Esc', 'Leave fullscreen'], ['Ctrl+B', 'Library'], ['Ctrl+T', 'Always on top'], ['Ctrl+P', 'Picture in picture'], ['Ctrl+K', 'Command palette'], ['Ctrl+Tab', 'Next template'], ['Ctrl+, ', 'Template gallery'], ['Ctrl+O, Ctrl+F, Ctrl+N', 'Open file, folder, stream']]],
     ];
     overlay(h('div.k-shortcuts', {}, h('h3', {}, 'Keyboard shortcuts'), h('div.k-shortcuts-grid', {},
@@ -325,7 +331,8 @@ const KEYS = [
   ['t', e => e.osd(`${fmt(e.currentTime())} of ${fmt(e.state.duration)}`, 'history')],
   ['Home', e => e.seek(0)], ['End', e => e.seek(e.state.duration - 5)],
   ['ctrl+o', e => e.openDialog()], ['ctrl+f', e => e.openFolderDialog()], ['ctrl+n', () => shell.openUrlDialog()],
-  ['ctrl+t', e => e.toggleAlwaysOnTop()], ['ctrl+p', e => e.togglePip()],
+  ['ctrl+t', e => e.toggleAlwaysOnTop()], ['ctrl+p', e => e.togglePip()], ['ctrl+m', e => e.toggleMini()],
+  ['ctrl+d', e => e.addMark()], ['ctrl+.', e => e.jumpMark(1)], ['ctrl+;', e => e.jumpMark(-1)],
   ['ctrl+k', () => shell.openPalette()], ['ctrl+,', () => shell.openSkinPicker()],
   ['ctrl+Tab', () => cycleSkin(1)], ['ctrl+shift+Tab', () => cycleSkin(-1)], ['ctrl+b', e => e.showLibrary(e.state.view !== 'library')],
   ['ctrl+l', () => shell.command('playlist')], ['ctrl+e', () => shell.command('effects')], ['ctrl+i', () => shell.command('info')],

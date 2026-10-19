@@ -13,6 +13,26 @@ const fileUri = p => {
   return 'file:///' + parts.map((s, i) => (i === 0 && /^[a-z]:$/i.test(s) ? s : encodeURIComponent(s))).join('/');
 };
 
+// Embedded titles are often a release site's name ("www.example.site"); those are worse than the file name.
+const junkTitle = t => !t || /(^|\s)(www\.|https?:)|^[\w-]+(\.[\w-]+)+$|\.[a-z]{2,10}$/i.test(t.trim());
+
+// Release-style file names ("www.site.tld - Film (2025) 1080p WEB-DL - [Tel + Tam] - ESub.mkv")
+// become the title a person would say: "Film (2025)". Episode tags survive ("Show S01E02").
+const QUALITY = /\b(2160p|1080p|720p|576p|480p|4k|uhd|hdr10?|dv|web[- .]?dl|web[- .]?rip|webrip|bluray|blu[- ]ray|brrip|bdrip|hdrip|dvdrip|hdtv|x26[45]|h\.?26[45]|hevc|avc|aac|ac3|eac3|ddp?\s?5[ .]1|dts|atmos|10bit|8bit|true|proper|repack|extended|uncut|remastered|esubs?|hc|cam|hdcam|predvd|org|multi|dual audio)\b/i;
+export function cleanName(raw) {
+  let n = String(raw || '').replace(/\.[a-z0-9]{2,5}$/i, '');
+  if (!/\s/.test(n) && /[._]/.test(n)) n = n.replace(/[._]+/g, ' ');
+  n = n.replace(/^\s*(www[.\s])?[\w-]+[.\s](com|net|org|in|co|me|to|tv|cc|ws|io|xyz|site|clothing|[a-z]{2,10})\s+-\s+/i, m => (/www|\.(com|net|org|in|co|me|to|tv|cc|ws|io|xyz|site)\b/i.test(m) || /^www/i.test(m) ? '' : m));
+  n = n.replace(/^\s*www[.\s][^-]*-\s*/i, '');
+  n = n.replace(/\[[^\]]*\]/g, ' ').replace(/\((?!\s*(19|20)\d{2}\s*\))[^)]*\)/g, ' ');
+  const q = n.search(QUALITY);
+  if (q > 2) n = n.slice(0, q);
+  n = n.replace(/[_]+/g, ' ').replace(/\s+-\s*$|^\s*-\s+/g, '').replace(/\s{2,}/g, ' ').trim().replace(/[\s-]+$/, '');
+  const year = /^(.*\S)\s+((19|20)\d{2})$/.exec(n);
+  if (year) n = `${year[1]} (${year[2]})`;
+  return n || String(raw || '').replace(/\.[a-z0-9]{2,5}$/i, '');
+}
+
 export const ASPECTS = ['auto', '16:9', '4:3', '21:9', '2.39:1', '1:1', 'fill', 'crop'];
 export const RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 3, 4];
 export const DEINTERLACE = ['', 'blend', 'bob', 'linear', 'x', 'yadif', 'yadif2x', 'phosphor', 'ivtc'];
@@ -38,13 +58,13 @@ export function createEngine() {
     subtitleDelay: 0, audioDelay: 0, subtitleScale: 100,
     playlist: [], index: -1, shuffle: false, repeat: 'off',
     loopA: null, loopB: null,
-    fullscreen: false, maximized: false, alwaysOnTop: false, pip: false,
+    fullscreen: false, maximized: false, alwaysOnTop: false, pip: false, mini: false,
     aspect: 'auto', zoom: 1,
     eq: { enabled: false, preset: 0, preamp: 12, bands: Array(10).fill(0) }, eqBands: [], eqPresets: [],
     adjust: { ...DEFAULT_ADJUST }, deinterlace: '', nightMode: false,
     recent: [], resume: {}, settings: { skin: null, autoQueue: true, resume: true, skipIntro: true, visualizer: 'spectrum', libraryFolders: null },
     error: null, idle: false, thumbs: true,
-    library: [], libraryScanning: false, view: 'player', scene: null,
+    library: [], libraryScanning: false, view: 'player', scene: null, marks: [],
   };
 
   // ---------- change batching ----------
@@ -71,18 +91,44 @@ export function createEngine() {
   function persist() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => host.storeSet({
-      settings: state.settings, recent: state.recent, resume: state.resume,
+      settings: state.settings, recent: state.recent, resume: state.resume, marks: allMarks,
       volume: state.volume, muted: state.muted, eq: state.eq, nightMode: state.nightMode, subtitleScale: state.subtitleScale,
     }), 400);
+  }
+
+  // ---------- bookmarks: moments you marked, kept per file ----------
+  let allMarks = {};
+  function addMark(t = currentTime()) {
+    if (!state.item) return;
+    if (state.marks.some(m => Math.abs(m.t - t) < 2)) return osd('Already bookmarked here', 'pin');
+    const ch = state.chapters.filter(c => c.time <= t).pop();
+    const marks = [...state.marks, { t, chapter: ch ? ch.name : '' }].sort((a, b) => a.t - b.t);
+    allMarks[state.item.path] = marks;
+    set({ marks });
+    persist();
+    osd(`Bookmarked ${fmt(t)}`, 'pin');
+  }
+  function removeMark(t) {
+    if (!state.item) return;
+    const marks = state.marks.filter(m => m.t !== t);
+    if (marks.length) allMarks[state.item.path] = marks; else delete allMarks[state.item.path];
+    set({ marks });
+    persist();
+  }
+  function jumpMark(dir) {
+    const t = currentTime();
+    const m = dir > 0 ? state.marks.find(x => x.t > t + 1) : [...state.marks].reverse().find(x => x.t < t - 2);
+    if (m) { seek(m.t); osd(`Bookmark ${fmt(m.t)}`, 'pin'); } else osd(dir > 0 ? 'No bookmarks after this' : 'No bookmarks before this', 'pin');
   }
   async function restore() {
     const s = await host.storeGet();
     set({
       settings: { ...state.settings, ...(s.settings || {}) },
-      recent: s.recent || [], resume: s.resume || {},
+      recent: (s.recent || []).map(r => ({ ...r, name: cleanName(r.name), title: junkTitle(r.title) ? '' : r.title })), resume: s.resume || {},
       volume: s.volume ?? 100, muted: !!s.muted,
       eq: s.eq ? { ...state.eq, ...s.eq } : state.eq, nightMode: !!s.nightMode, subtitleScale: s.subtitleScale || 100,
     });
+    allMarks = s.marks || {};
   }
   function saveSettings(patch) { set({ settings: { ...state.settings, ...patch } }); persist(); }
 
@@ -197,7 +243,7 @@ export function createEngine() {
     const meta = m.meta || {};
     const item = state.item ? { ...state.item } : null;
     if (item) {
-      if (meta.title && meta.title !== item.fileName) item.title = meta.title;
+      if (meta.title && meta.title !== item.fileName && !junkTitle(meta.title)) item.title = meta.title;
       item.artist = meta.artist || item.artist || '';
       item.album = meta.album || item.album || '';
       item.artwork = meta.artwork || item.artwork || '';
@@ -264,7 +310,7 @@ export function createEngine() {
   }
 
   // ---------- loading ----------
-  const makeItem = p => ({ path: p, name: baseName(p), fileName: baseName(p), title: '', isAudio: AUDIO_EXT.test(p) });
+  const makeItem = p => ({ path: p, name: cleanName(baseName(p)), fileName: baseName(p), title: '', isAudio: AUDIO_EXT.test(p) });
 
   function mediaOptions(extra = []) {
     const o = [...extra];
@@ -286,7 +332,7 @@ export function createEngine() {
     set({
       index, item, status: 'opening', playing: false, time: at, duration: 0, error: null, video: null, meta: {},
       audioTracks: [], subtitleTracks: [], audioTrack: -1, subtitleTrack: -1, chapters: [], chapter: -1,
-      loopA: null, loopB: null, rate: 1, buffering: 0, subtitleDelay: reselect ? state.subtitleDelay : 0, audioDelay: reselect ? state.audioDelay : 0,
+      loopA: null, loopB: null, rate: 1, buffering: 0, marks: allMarks[item.path] || [], subtitleDelay: reselect ? state.subtitleDelay : 0, audioDelay: reselect ? state.audioDelay : 0,
     });
     setBase(at);
     send({ cmd: 'open', path: item.path, start: at, paused, options: mediaOptions(item.isAudio ? visualizerOptions() : []) });
@@ -335,7 +381,7 @@ export function createEngine() {
       const i = sib.findIndex(p => p.toLowerCase() === media[0].toLowerCase());
       if (i >= 0) { startIdx = i; media = sib; }
     }
-    const items = media.map(p => ({ path: p, name: baseName(p) }));
+    const items = media.map(p => ({ path: p, name: cleanName(baseName(p)) }));
     if (append && state.playlist.length) {
       set({ playlist: [...state.playlist, ...items] });
       osd(`Added ${items.length} to the queue`, 'queue');
@@ -543,6 +589,12 @@ export function createEngine() {
       set({ pip: true });
     } catch (e) { osd('Picture in picture is not available here'); }
   }
+  async function toggleMini() {
+    const on = !state.mini;
+    set({ mini: on });
+    await host.win.mini(on);
+    osd(on ? 'Mini player. Ctrl+M to go back.' : 'Back to the full window', 'mini');
+  }
   host.onFullScreen(v => set({ fullscreen: v }));
   host.onMaximized(v => set({ maximized: v }));
 
@@ -654,13 +706,13 @@ export function createEngine() {
     for (const r of state.recent) {
       if (seen.has(r.path)) continue;
       seen.add(r.path);
-      out.push({ path: r.path, name: r.name, title: r.title || '', isAudio: !!r.isAudio, time: r.time || 0, duration: r.duration || 0, recent: true, folder: '' });
+      out.push({ path: r.path, name: cleanName(r.name), title: r.title || '', isAudio: !!r.isAudio, time: r.time || 0, duration: r.duration || 0, recent: true, folder: '' });
     }
     for (const f of state.library) {
       if (seen.has(f.path)) continue;
       seen.add(f.path);
       const res = state.resume[f.path];
-      out.push({ path: f.path, name: f.name, title: '', isAudio: f.isAudio, time: res ? res.time : 0, duration: res ? res.duration : 0, recent: false, folder: f.folder });
+      out.push({ path: f.path, name: cleanName(f.name), title: '', isAudio: f.isAudio, time: res ? res.time : 0, duration: res ? res.duration : 0, recent: false, folder: f.folder });
     }
     return audio ? out : out.filter(i => !i.isAudio);
   }
@@ -701,11 +753,11 @@ export function createEngine() {
     setSubtitleDelay, subtitleDelayBy, setAudioDelay, audioDelayBy, setSubtitleScale,
     setChapter, nextChapter, prevChapter, skippable,
     frameStep, screenshot, cycleLoop,
-    toggleFullscreen, toggleAlwaysOnTop, togglePip,
+    toggleFullscreen, toggleAlwaysOnTop, togglePip, toggleMini,
     setAspect, cycleAspect, setZoom,
     setEq, applyEqPreset, setAdjust, resetAdjust, setDeinterlace, toggleNightMode,
     thumb, poster, reopen, setVisualizer,
-    holdNext, isHeld,
+    holdNext, isHeld, addMark, removeMark, jumpMark,
     thumbAt, duration, barcode, scanLibrary, addLibraryFolder, removeLibraryFolder, galleryItems, showLibrary,
   };
   return api;

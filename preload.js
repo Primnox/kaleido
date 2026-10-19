@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('host', {
     setAlwaysOnTop: v => invoke('win:setAlwaysOnTop', v),
     resize: (w, h) => invoke('win:resize', w, h),
     state: () => invoke('win:state'),
+    mini: on => invoke('win:mini', on),
   },
   onOpenFiles: listen('open-files'),
   onFullScreen: listen('fullscreen'),

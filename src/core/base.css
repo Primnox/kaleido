@@ -82,6 +82,7 @@ img { -webkit-user-drag: none; }
 .k-seek-loop { background: rgba(255, 255, 255, 0.35); display: none; }
 .k-seek-chapters { right: 0; pointer-events: none; }
 .k-seek-chapter { position: absolute; top: -1px; bottom: -1px; width: 3px; margin-left: -1.5px; background: var(--k-bg); opacity: 0.85; }
+.k-seek-mark { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--k-accent); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55); }
 .k-seek-handle { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--k-seek-fill); transform: scale(0); transition: transform 0.15s var(--k-ease); pointer-events: none; box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.2); }
 .k-seek:hover .k-seek-handle, .k-seek.k-dragging .k-seek-handle { transform: scale(1); }
 .k-seek-preview {

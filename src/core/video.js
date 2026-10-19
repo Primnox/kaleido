@@ -4,9 +4,10 @@ const VERT = `#version 300 es
 in vec2 pos;
 uniform vec4 rect;      // x, y, w, h in clip space
 uniform vec2 crop;      // visible fraction of the decoded frame
+uniform vec2 off;       // where the visible part starts (used to trim letterbox bars)
 out vec2 uv;
 void main() {
-  uv = vec2((pos.x * 0.5 + 0.5) * crop.x, (0.5 - pos.y * 0.5) * crop.y);
+  uv = off + vec2((pos.x * 0.5 + 0.5) * crop.x, (0.5 - pos.y * 0.5) * crop.y);
   gl_Position = vec4(rect.x + (pos.x * 0.5 + 0.5) * rect.z, rect.y + (pos.y * 0.5 + 0.5) * rect.w, 0.0, 1.0);
 }`;
 
@@ -55,6 +56,7 @@ export function createVideoSurface() {
   const u = name => gl.getUniformLocation(prog, name);
   const uRect = u('rect');
   const uCrop = u('crop');
+  const uOff = u('off');
   const u709 = u('bt709');
   const textures = ['ty', 'tu', 'tv'].map((name, i) => {
     const t = gl.createTexture();
@@ -71,7 +73,23 @@ export function createVideoSurface() {
   let frameW = 0, frameH = 0;
   let hasFrame = false;
   let dirty = true;
-  const view = { aspect: 'auto', zoom: 1, displayAspect: 16 / 9, cropX: 1, cropY: 1 };
+  const view = { aspect: 'auto', zoom: 1, displayAspect: 16 / 9, cropX: 1, cropY: 1, trim: false };
+  // Black bars baked into the picture, measured from VLC's luma plane. The smallest bars seen win,
+  // so a dark scene never makes the bars look bigger than they are.
+  let bars = null;
+  let barsAt = 0;
+  function measureBars(bytes, w, h) {
+    const vw = Math.max(8, Math.floor(w * view.cropX));
+    const vh = Math.max(8, Math.floor(h * view.cropY));
+    const row = y => { let sum = 0, n = 0; for (let x = 4; x < vw; x += 8) { sum += bytes[y * w + x]; n++; } return sum / n; };
+    if (row(vh >> 1) < 26) return;
+    let top = 0, bottom = 0;
+    while (top < vh * 0.3 && row(top) < 24) top++;
+    while (bottom < vh * 0.3 && row(vh - 1 - bottom) < 24) bottom++;
+    const t = top / vh < 0.012 ? 0 : top / vh;
+    const b = bottom / vh < 0.012 ? 0 : bottom / vh;
+    bars = bars ? { top: Math.min(bars.top, t), bottom: Math.min(bars.bottom, b) } : { top: t, bottom: b };
+  }
 
   const ASPECTS = { '16:9': 16 / 9, '4:3': 4 / 3, '21:9': 21 / 9, '1:1': 1, '2.39:1': 2.39, '5:4': 1.25 };
 
@@ -93,6 +111,7 @@ export function createVideoSurface() {
     frameW = w;
     frameH = h;
     hasFrame = true;
+    if (++barsAt % 40 === 1) measureBars(bytes, w, h);
   }
 
   function layout() {
@@ -109,7 +128,8 @@ export function createVideoSurface() {
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     if (!hasFrame) return;
-    const target = ASPECTS[view.aspect] || view.displayAspect;
+    const trimmed = view.trim && bars ? 1 - bars.top - bars.bottom : 1;
+    const target = ASPECTS[view.aspect] || view.displayAspect / trimmed;
     let w, h;
     if (view.aspect === 'fill') { w = 2; h = 2; }
     else {
@@ -121,7 +141,8 @@ export function createVideoSurface() {
     w *= view.zoom;
     h *= view.zoom;
     gl.uniform4f(uRect, -w / 2, -h / 2, w, h);
-    gl.uniform2f(uCrop, view.cropX, view.cropY);
+    gl.uniform2f(uCrop, view.cropX, view.cropY * trimmed);
+    gl.uniform2f(uOff, 0, view.trim && bars ? bars.top * view.cropY : 0);
     gl.uniform1i(u709, frameH >= 600 ? 1 : 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
@@ -137,7 +158,12 @@ export function createVideoSurface() {
   return {
     canvas,
     pushFrame(ab) { pending = ab; },
-    clear() { hasFrame = false; pending = null; frameW = frameH = 0; dirty = true; },
+    clear() { hasFrame = false; pending = null; frameW = frameH = 0; bars = null; barsAt = 0; dirty = true; },
+    // Fraction of the picture taken by baked-in black bars, or null until a frame has been measured.
+    get bars() { return bars; },
+    setTrim(on) { view.trim = !!on; dirty = true; },
+    // Aspect of what is actually picture, once bars are cut away.
+    contentAspect() { return bars ? view.displayAspect / Math.max(0.3, 1 - bars.top - bars.bottom) : view.displayAspect; },
     get hasFrame() { return hasFrame; },
     setView(patch) { Object.assign(view, patch); dirty = true; },
     // Visible region and display aspect come from VLC's track info (frames may carry decoder padding).

@@ -190,8 +190,11 @@ export function seekbar(engine, { preview = true, chapters = true, liveSeek = tr
 
   return bind(engine, el, (s, keys) => {
     if (!dragging) render(s.time);
-    if (!keys || keys.has('chapters') || keys.has('duration')) {
-      marks.replaceChildren(...(chapters && s.duration ? s.chapters.filter(c => c.time > 0.5).map(c => h('i.k-seek-chapter', { style: { left: `${(c.time / s.duration) * 100}%` }, title: c.name })) : []));
+    if (!keys || keys.has('chapters') || keys.has('duration') || keys.has('marks')) {
+      const at = t => `${(t / s.duration) * 100}%`;
+      marks.replaceChildren(
+        ...(chapters && s.duration ? s.chapters.filter(c => c.time > 0.5).map(c => h('i.k-seek-chapter', { style: { left: at(c.time) }, title: c.name })) : []),
+        ...(s.duration ? (s.marks || []).map(m => h('i.k-seek-mark', { style: { left: at(m.t) }, title: `Bookmark ${fmt(m.t)}` })) : []));
     }
     if (!keys || keys.has('loopA') || keys.has('loopB') || keys.has('duration')) {
       const on = s.loopA != null && s.duration;

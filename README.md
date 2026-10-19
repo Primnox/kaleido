@@ -1,20 +1,23 @@
 # Kaleido
 
-A video player with VLC's engine and a new kind of interface. The interface is called Prose: there are no buttons, sliders or menus. It is one sentence about what is happening, and every control is a word in it.
+A video player with VLC's engine and a plain, quiet interface. It plays everything VLC plays.
 
-> The Long Way North, 41 minutes in. Pause. It's loud, in English, without words, at normal speed. More.
+- Ordinary controls that hide while you watch: seek with frame previews and chapter marks, volume up to 200%, subtitles, audio tracks, speed, full screen.
+- Pausing is the one special moment: the room warms up, the picture is held like a photograph (letterbox bars cropped away), and the last few moments you saw sit beside it. Click one to go back there.
+- Release-style file names become real titles ("The Long Way North (2024)", not the whole download name).
+- Every file remembers where you stopped, and the rest of the folder queues up after it.
+- Skip intro during chapters named Intro, Opening or Recap, and an up next card with a countdown near the end.
+- Bookmarks (Ctrl+D) shown on the seek bar, double click the left or right side to jump 10 seconds, a queue panel, and a mini player (Ctrl+M).
+- Quality badges next to the title (4K, HEVC, 5.1) and six colour themes on the home page, which has moving film doodles.
 
-- Click a lit word to change it, drag it to slide it, scroll on it to roll through its choices.
-- Pause and the lights come up. Find a moment by what it looked like, not by a timestamp.
-- Right-click (or "More") for everything VLC hides in its menus, written as sentences you edit.
-- Open the app and the last thing you watched is waiting where you left it.
+Two other interfaces are still in the project as alternatives (Ctrl+Tab): The room and Prose.
 
 ## How it works
 
 - `engine/` is a small Rust program that loads libVLC from `vendor/vlc`, receives decoded frames through VLC's video callbacks and streams them, along with the player state, over a local WebSocket. Playback, codecs, subtitles, the equalizer and filters are all VLC.
 - `main.js` is the Electron main process. It starts the engine, restarts it if a VLC module crashes, and handles files, windows and saved state.
 - `src/core/` draws frames with WebGL and keeps the player state (`engine.js`), and holds the shared shell (keyboard, drag and drop, idle hiding).
-- `src/skins/prose/` is the Prose interface.
+- `src/skins/normal/` is the default interface; `src/skins/room/` and `src/skins/prose/` are the alternatives.
 
 ffmpeg is optional and only used for frame previews, the colour line at the end, and posters.
 
