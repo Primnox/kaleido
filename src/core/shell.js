@@ -155,6 +155,11 @@ function commands() {
     ['Picture in picture', 'Ctrl+P', () => e.togglePip()],
     ['Mini player', 'Ctrl+M', () => e.toggleMini()],
     ['Bookmark this moment', 'Ctrl+D', () => e.addMark()],
+    ['What did they say? Replay with subtitles', 'W', () => e.whatDidTheySay()],
+    ['Search what they say', '/', () => shell.searchDialogue()],
+    ['Save a clip (the loop, or the last 30 seconds)', 'C', () => e.saveClip()],
+    [s.settings.skipSilence ? 'Stop skipping silence' : 'Skip silence', '', () => e.toggleSkipSilence()],
+    [s.settings.pauseOnLock === false ? 'Pause when the PC locks' : 'Keep playing when the PC locks', '', () => e.togglePauseOnLock()],
     ['Next bookmark', 'Ctrl+.', () => e.jumpMark(1)],
     ['Previous bookmark', 'Ctrl+;', () => e.jumpMark(-1)],
     ['Show playlist', 'Ctrl+L', () => shell.command('playlist')],
@@ -268,6 +273,50 @@ const shell = {
     (tiles.find(t => t.dataset.id === original) || tiles[0]).focus({ preventScroll: true });
   },
 
+  // Search what people say: every subtitle line, filtered as you type, click to go there.
+  async searchDialogue() {
+    if (!engine.state.item) return;
+    const input = h('input.k-palette-input', { placeholder: 'Search what they say', spellcheck: 'false' });
+    const list = h('div.k-palette-list');
+    const note = h('div.k-say-note', {}, 'Reading the subtitles...');
+    const o = overlay(h('div.k-palette.k-say', {}, h('div.k-palette-bar', {}, icon('search', { size: 18 }), input), note, list), { cls: 'k-overlay-top' });
+    input.focus();
+    const data = await engine.dialogue();
+    if (!o.isConnected) return;
+    if (!data || !data.cues.length) { note.textContent = 'This file has no subtitle text to search. Drop a .srt file on the player to add one.'; return; }
+    note.textContent = `${data.cues.length} lines from ${data.source}`;
+    let sel = 0;
+    let shown = [];
+    const mark = (text, q) => {
+      if (!q) return [text];
+      const i = text.toLowerCase().indexOf(q);
+      return i < 0 ? [text] : [text.slice(0, i), h('mark', {}, text.slice(i, i + q.length)), text.slice(i + q.length)];
+    };
+    const go = c => { o.close(); engine.seek(Math.max(0, c.start - 0.6)); engine.play(); };
+    const render = () => {
+      const q = input.value.trim().toLowerCase();
+      shown = (q ? data.cues.filter(c => c.text.toLowerCase().includes(q)) : data.cues.filter(c => c.start >= engine.currentTime() - 5)).slice(0, 80);
+      sel = Math.min(sel, Math.max(0, shown.length - 1));
+      list.replaceChildren(...(shown.length ? shown.map((c, i) => {
+        const row = h('button.k-palette-row.k-say-row', { type: 'button', class: i === sel ? 'k-sel' : '' }, h('kbd', {}, fmt(c.start)), h('span.k-palette-label', {}, ...mark(c.text, q)));
+        row.addEventListener('click', () => go(c));
+        row.addEventListener('pointermove', () => { if (sel !== i) { sel = i; render(); } });
+        return row;
+      }) : [h('div.k-empty', {}, 'Nobody says that.')]));
+      const s = list.querySelector('.k-sel');
+      s && s.scrollIntoView({ block: 'nearest' });
+    };
+    input.addEventListener('input', () => { sel = 0; render(); });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, shown.length - 1); render(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); render(); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (shown[sel]) go(shown[sel]); }
+      else if (e.key === 'Escape') { e.preventDefault(); o.close(); }
+      e.stopPropagation();
+    });
+    render();
+  },
+
   openUrlDialog() {
     const input = h('input.k-dialog-input', { placeholder: 'https:// rtsp:// udp:// or any URL VLC understands', spellcheck: 'false' });
     const go = () => { const v = input.value.trim(); if (v) { o.close(); engine.openUrl(v); } };
@@ -285,6 +334,7 @@ const shell = {
       ['Playback', [['Space or K', 'Play or pause'], ['S', 'Stop'], ['Left and Right', 'Back or forward 5s'], ['J and L', 'Back or forward 10s'], ['Shift+Left and Right', '1s'], ['Ctrl+Left and Right', '1 minute'], ['0 to 9', 'Jump to 0% to 90%'], ['Home', 'Start over'], ['E', 'Next frame'], ['[ and ]', 'Slower or faster'], ['=', 'Normal speed'], ['X', 'A to B loop']]],
       ['Sound and subtitles', [['Up and Down', 'Volume (up to 200%)'], ['M', 'Mute'], ['D', 'Night mode'], ['B', 'Next audio track'], ['V', 'Next subtitle track'], ['G and H', 'Subtitle delay'], ['Ctrl+G and Ctrl+H', 'Audio delay']]],
       ['Queue and picture', [['N and P', 'Next or previous file'], ['Page Up and Down', 'Chapters'], ['A', 'Aspect ratio'], ['Z and Shift+Z', 'Zoom, reset zoom'], ['Shift+S', 'Snapshot'], ['R and Shift+R', 'Shuffle, repeat']]],
+      ['Only in Kaleido', [['W', 'What did they say? Back 10s with subtitles'], ['/', 'Search what they say'], ['C', 'Save a clip'], ['X then X', 'Loop a part, then C to keep it']]],
       ['Bookmarks and mini player', [['Ctrl+D', 'Bookmark this moment'], ['Ctrl+. and Ctrl+;', 'Next or previous bookmark'], ['Ctrl+M', 'Mini player'], ['Double click left or right', 'Back or forward 10s']]],
       ['Window', [['F or double click', 'Fullscreen'], ['Esc', 'Leave fullscreen'], ['Ctrl+B', 'Library'], ['Ctrl+T', 'Always on top'], ['Ctrl+P', 'Picture in picture'], ['Ctrl+K', 'Command palette'], ['Ctrl+Tab', 'Next template'], ['Ctrl+, ', 'Template gallery'], ['Ctrl+O, Ctrl+F, Ctrl+N', 'Open file, folder, stream']]],
     ];
@@ -333,6 +383,7 @@ const KEYS = [
   ['ctrl+o', e => e.openDialog()], ['ctrl+f', e => e.openFolderDialog()], ['ctrl+n', () => shell.openUrlDialog()],
   ['ctrl+t', e => e.toggleAlwaysOnTop()], ['ctrl+p', e => e.togglePip()], ['ctrl+m', e => e.toggleMini()],
   ['ctrl+d', e => e.addMark()], ['ctrl+.', e => e.jumpMark(1)], ['ctrl+;', e => e.jumpMark(-1)],
+  ['w', e => e.whatDidTheySay()], ['/', () => shell.searchDialogue()], ['c', e => e.saveClip()],
   ['ctrl+k', () => shell.openPalette()], ['ctrl+,', () => shell.openSkinPicker()],
   ['ctrl+Tab', () => cycleSkin(1)], ['ctrl+shift+Tab', () => cycleSkin(-1)], ['ctrl+b', e => e.showLibrary(e.state.view !== 'library')],
   ['ctrl+l', () => shell.command('playlist')], ['ctrl+e', () => shell.command('effects')], ['ctrl+i', () => shell.command('info')],

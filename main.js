@@ -1,6 +1,6 @@
 // Kaleido main process: window, the libVLC engine process, dialogs and persistence.
 // Playback itself happens in engine/ (Rust + libVLC); this file only supervises it.
-const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, Menu, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -241,6 +241,109 @@ async function siblings(file) {
   return names.filter(n => kind.includes(extOf(n))).sort(collator.compare).map(n => path.join(dir, n));
 }
 
+// ---------- dialogue: every subtitle line, so you can search what people say ----------
+const TEXT_SUBS = ['subrip', 'ass', 'ssa', 'webvtt', 'mov_text', 'text'];
+const dialogueCache = new Map();
+function parseCues(text) {
+  const ts = s => {
+    const m = /(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{1,3})/.exec(s || '');
+    return m ? Number(m[1] || 0) * 3600 + Number(m[2]) * 60 + Number(m[3]) + Number(m[4].padEnd(3, '0')) / 1000 : null;
+  };
+  const out = [];
+  for (const block of String(text).replace(/\r/g, '').split(/\n\s*\n/)) {
+    const lines = block.split('\n');
+    const i = lines.findIndex(l => l.includes('-->'));
+    if (i < 0) continue;
+    const [a, z] = lines[i].split('-->');
+    const start = ts(a);
+    const end = ts(z);
+    const line = lines.slice(i + 1).join(' ').replace(/<[^>]+>/g, '').replace(/\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();
+    if (start != null && line) out.push({ start, end: end ?? start + 2, text: line });
+  }
+  return out;
+}
+function decodeText(buf) {
+  if (buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) buf = buf.subarray(3);
+  if (buf[0] === 0xff && buf[1] === 0xfe) return new TextDecoder('utf-16le').decode(buf.subarray(2));
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch { return new TextDecoder('windows-1252').decode(buf); }
+}
+async function dialogue(file) {
+  if (isUrl(file) || !(await hasFfmpeg())) return null;
+  const key = await fileKey(file);
+  if (!key) return null;
+  if (dialogueCache.has(key)) return dialogueCache.get(key);
+  let result = null;
+  // A subtitle file next to the video wins, English first.
+  const dir = path.dirname(file);
+  const base = path.basename(file, path.extname(file)).toLowerCase();
+  const sidecars = (await fsp.readdir(dir).catch(() => []))
+    .filter(n => SUB_EXT.includes(extOf(n)) && n.toLowerCase().startsWith(base))
+    .sort((a, b) => Number(/\b(en|eng|english)\b/i.test(b)) - Number(/\b(en|eng|english)\b/i.test(a)));
+  for (const n of sidecars) {
+    const p = path.join(dir, n);
+    const raw = ['ass', 'ssa'].includes(extOf(n))
+      ? String(await run(FFMPEG, ['-v', 'error', '-i', p, '-f', 'srt', 'pipe:1']).catch(() => ''))
+      : decodeText(await fsp.readFile(p));
+    const cues = parseCues(raw);
+    if (cues.length) { result = { source: n, cues }; break; }
+  }
+  // Otherwise the first text subtitle track inside the file, English first.
+  if (!result) {
+    const probe = JSON.parse(String(await run(FFPROBE, ['-v', 'error', '-select_streams', 's', '-show_entries', 'stream=index,codec_name:stream_tags=language,title', '-of', 'json', file]).catch(() => '{}')) || '{}');
+    const streams = (probe.streams || []).filter(s => TEXT_SUBS.includes(s.codec_name));
+    streams.sort((a, b) => Number(/^en/i.test((b.tags || {}).language || '')) - Number(/^en/i.test((a.tags || {}).language || '')));
+    for (const s of streams.slice(0, 2)) {
+      const raw = String(await run(FFMPEG, ['-v', 'error', '-i', file, '-map', `0:${s.index}`, '-f', 'srt', 'pipe:1'], { timeout: 180000 }).catch(() => ''));
+      const cues = parseCues(raw);
+      if (cues.length) { result = { source: ((s.tags || {}).title || (s.tags || {}).language || 'subtitles'), cues }; break; }
+    }
+  }
+  dialogueCache.set(key, result);
+  return result;
+}
+
+// ---------- silence: long quiet stretches, for skipping dead air in lectures and recordings ----------
+async function silences(file) {
+  if (isUrl(file) || !(await hasFfmpeg())) return null;
+  const key = await fileKey(file);
+  if (!key) return null;
+  const c = cacheEntry(key);
+  if (c.silences) return c.silences;
+  const found = await new Promise(resolve => {
+    const p = spawn(FFMPEG, ['-hide_banner', '-nostats', '-vn', '-sn', '-dn', '-i', file, '-af', 'silencedetect=noise=-38dB:d=1.5', '-f', 'null', '-'], { windowsHide: true });
+    let err = '';
+    const timer = setTimeout(() => p.kill('SIGKILL'), 300000);
+    p.stderr.on('data', d => { err += d; });
+    p.on('error', () => resolve(null));
+    p.on('close', () => {
+      clearTimeout(timer);
+      const out = [];
+      let start = null;
+      for (const m of err.matchAll(/silence_(start|end): ([\d.]+)/g)) {
+        if (m[1] === 'start') start = Number(m[2]);
+        else if (start != null) { out.push([start, Number(m[2])]); start = null; }
+      }
+      resolve(out);
+    });
+  });
+  if (found) { c.silences = found; saveMediaCache(); }
+  return found;
+}
+
+// ---------- clips: a frame accurate mp4 of a stretch you liked ----------
+async function saveClip(file, start, end, name) {
+  if (isUrl(file) || !(await hasFfmpeg())) throw new Error('Saving clips needs ffmpeg');
+  const dir = path.join(app.getPath('videos'), 'Kaleido clips');
+  await fsp.mkdir(dir, { recursive: true });
+  const stamp = t => { const s = Math.floor(t); return `${Math.floor(s / 3600)}h${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m${String(s % 60).padStart(2, '0')}s`; };
+  const safe = String(name || 'clip').replace(/[^\w.\- ()]+/g, '_').slice(0, 80);
+  const out = path.join(dir, `${safe} ${stamp(start)} to ${stamp(end)}.mp4`);
+  await run(FFMPEG, ['-v', 'error', '-y', '-ss', start.toFixed(3), '-i', file, '-t', (end - start).toFixed(3),
+    '-map', '0:v:0?', '-map', '0:a:0?', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-vf', "scale='min(1920,iw)':-2", '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac', '-b:a', '192k', '-ac', '2', '-dn', '-map_chapters', '-1', '-movflags', '+faststart', out], { timeout: 600000 });
+  return out;
+}
+
 function argvFiles(argv) {
   return argv.slice(app.isPackaged ? 1 : 2).filter(a => a !== '.' && !a.startsWith('-') && (isUrl(a) || fs.existsSync(a)));
 }
@@ -272,6 +375,9 @@ ipcMain.handle('media:thumb', (e, file, t, w) => grabFrame(file, t, w));
 ipcMain.handle('media:poster', (e, file, t) => poster(file, t));
 ipcMain.handle('media:duration', (e, file) => duration(file));
 ipcMain.handle('media:barcode', (e, file, cols) => barcode(file, cols));
+ipcMain.handle('media:dialogue', (e, file) => dialogue(file));
+ipcMain.handle('media:silences', (e, file) => silences(file));
+ipcMain.handle('clip:save', (e, file, start, end, name) => saveClip(file, start, end, name));
 ipcMain.handle('library:scan', async (e, folders) => {
   const files = await expand(folders.filter(f => fs.existsSync(f)));
   return files.filter(f => MEDIA_EXT.has(extOf(f))).slice(0, 800).map(f => ({ path: f, name: path.basename(f), folder: path.basename(path.dirname(f)) }));
@@ -376,6 +482,7 @@ function attachDebug() {
     return true;
   });
   ipcMain.handle('debug:quit', () => { quitting = true; app.quit(); });
+  ipcMain.handle('debug:system', (e, ev) => win.webContents.send('system', ev));
   if (process.env.KALEIDO_SCRIPT) {
     win.webContents.once('did-finish-load', () => {
       win.webContents.executeJavaScript(fs.readFileSync(process.env.KALEIDO_SCRIPT, 'utf8')).catch(err => console.log('[script error]', err));
@@ -394,6 +501,12 @@ else {
   });
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
+    // Locking the PC or putting it to sleep pauses the film; the UI decides what to say when you return.
+    const system = ev => () => win && win.webContents.send('system', ev);
+    powerMonitor.on('lock-screen', system('away'));
+    powerMonitor.on('suspend', system('away'));
+    powerMonitor.on('unlock-screen', system('back'));
+    powerMonitor.on('resume', system('back'));
     loadStore();
     startEngine();
     createWindow();

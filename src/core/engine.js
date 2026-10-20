@@ -62,7 +62,7 @@ export function createEngine() {
     aspect: 'auto', zoom: 1,
     eq: { enabled: false, preset: 0, preamp: 12, bands: Array(10).fill(0) }, eqBands: [], eqPresets: [],
     adjust: { ...DEFAULT_ADJUST }, deinterlace: '', nightMode: false,
-    recent: [], resume: {}, settings: { skin: null, autoQueue: true, resume: true, skipIntro: true, visualizer: 'spectrum', libraryFolders: null },
+    recent: [], resume: {}, settings: { skin: null, autoQueue: true, resume: true, skipIntro: true, visualizer: 'spectrum', libraryFolders: null, skipSilence: false, pauseOnLock: true },
     error: null, idle: false, thumbs: true,
     library: [], libraryScanning: false, view: 'player', scene: null, marks: [],
   };
@@ -91,7 +91,7 @@ export function createEngine() {
   function persist() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => host.storeSet({
-      settings: state.settings, recent: state.recent, resume: state.resume, marks: allMarks,
+      settings: state.settings, recent: state.recent, resume: state.resume, marks: allMarks, langs,
       volume: state.volume, muted: state.muted, eq: state.eq, nightMode: state.nightMode, subtitleScale: state.subtitleScale,
     }), 400);
   }
@@ -129,6 +129,7 @@ export function createEngine() {
       eq: s.eq ? { ...state.eq, ...s.eq } : state.eq, nightMode: !!s.nightMode, subtitleScale: s.subtitleScale || 100,
     });
     allMarks = s.marks || {};
+    langs = s.langs || {};
   }
   function saveSettings(patch) { set({ settings: { ...state.settings, ...patch } }); persist(); }
 
@@ -186,6 +187,8 @@ export function createEngine() {
       const t = currentTime();
       state.time = t;
       if (state.loopB != null && state.loopA != null && t >= state.loopB) seek(state.loopA);
+      if (replay && t >= replay.until) endReplay();
+      if (state.playing) checkSilence(t);
       emit('time', state);
     }
     requestAnimationFrame(tick);
@@ -257,6 +260,7 @@ export function createEngine() {
       chapters: (m.chapters || []).map(c => ({ time: c.time / 1000, duration: c.duration / 1000, name: c.name })),
     });
     if (video) surface.setGeometry({ ...video, sourceWidth: formatInfo && formatInfo.sourceWidth, sourceHeight: formatInfo && formatInfo.sourceHeight });
+    if (!pendingReselect) applyLangs();
     if (pendingReselect) {
       const r = pendingReselect;
       pendingReselect = null;
@@ -329,6 +333,7 @@ export function createEngine() {
     surface.clear();
     formatInfo = null;
     pendingReselect = reselect;
+    if (!reselect) { langsApplied = false; replay = null; }
     set({
       index, item, status: 'opening', playing: false, time: at, duration: 0, error: null, video: null, meta: {},
       audioTracks: [], subtitleTracks: [], audioTrack: -1, subtitleTrack: -1, chapters: [], chapter: -1,
@@ -345,6 +350,7 @@ export function createEngine() {
     }
     if (state.view !== 'player' && !reselect) set({ view: 'player' });
     emit('loaded', item);
+    if (state.settings.skipSilence) setTimeout(loadSilences, 1500);
     prefetchThumbs(item.path);
   }
 
@@ -509,10 +515,122 @@ export function createEngine() {
     osd({ off: 'Repeat off', all: 'Repeat all', one: 'Repeat this one' }[state.repeat], 'repeat');
   }
 
+  // ---------- languages remembered per folder (a series keeps your audio and subtitle choice) ----------
+  const langOf = name => { const m = /\[([^\]]+)\]/.exec(name || ''); return (m ? m[1] : String(name || '').replace(/^Track\s*\d+\s*-?\s*/i, '')).trim().toLowerCase(); };
+  const folderOf = p => String(p || '').replace(/[\\/][^\\/]*$/, '').toLowerCase();
+  let langs = {};
+  let langsApplied = false;
+  function rememberLang(kind, track) {
+    if (!state.item || state.item.url) return;
+    const f = folderOf(state.item.path);
+    langs[f] = { ...(langs[f] || {}), [kind]: track ? langOf(track.name) : null };
+    persist();
+  }
+  function applyLangs() {
+    if (langsApplied || !state.item || !state.audioTracks.length) return;
+    langsApplied = true;
+    const pref = langs[folderOf(state.item.path)];
+    if (!pref) return;
+    if (pref.audio && state.audioTracks.length > 1) {
+      const a = state.audioTracks.find(t => langOf(t.name) === pref.audio);
+      if (a && a.id !== state.audioTrack) { send({ cmd: 'audioTrack', id: a.id }); set({ audioTrack: a.id }); }
+    }
+    if ('sub' in pref) {
+      const s = pref.sub ? state.subtitleTracks.find(t => langOf(t.name) === pref.sub) : null;
+      const id = s ? s.id : pref.sub === null ? -1 : state.subtitleTrack;
+      if (id !== state.subtitleTrack) { send({ cmd: 'spuTrack', id }); set({ subtitleTrack: id }); }
+    }
+    if (pref.audio || pref.sub) osd('Using your usual languages for this folder', 'audio');
+  }
+
+  // ---------- "what did they say?": back 10 seconds with subtitles on, then off again ----------
+  let replay = null;
+  function whatDidTheySay() {
+    if (!state.item) return;
+    const subs = state.subtitleTracks;
+    if (!subs.length) return osd('No subtitles in this file to show you');
+    const t = currentTime();
+    if (state.subtitleTrack === -1) {
+      const pref = langs[folderOf(state.item.path)];
+      const pick = (pref && pref.sub && subs.find(x => langOf(x.name) === pref.sub)) || subs.find(x => /english|\beng?\b/i.test(x.name)) || subs[0];
+      send({ cmd: 'spuTrack', id: pick.id });
+      set({ subtitleTrack: pick.id });
+      replay = { until: t + 0.6, restore: -1 };
+    } else replay = { until: t + 0.6, restore: null };
+    seek(Math.max(0, t - 10));
+    if (!state.playing) play();
+    osd('What did they say? Replaying with subtitles', 'subtitles');
+  }
+  function endReplay() {
+    if (replay && replay.restore === -1) { send({ cmd: 'spuTrack', id: -1 }); set({ subtitleTrack: -1 }); }
+    replay = null;
+  }
+
+  // ---------- skip silence ----------
+  let quiet = null;
+  let quietFor = null;
+  let lastSkip = 0;
+  async function loadSilences() {
+    if (!state.settings.skipSilence || !state.item || quietFor === state.item.path) return;
+    quietFor = state.item.path;
+    quiet = null;
+    osd('Listening for long silences', 'volume');
+    const found = await host.silences(state.item.path);
+    if (quietFor !== (state.item && state.item.path)) return;
+    quiet = found || [];
+    osd(quiet.length ? `Skip silence on. ${quiet.length} quiet stretch${quiet.length === 1 ? '' : 'es'} found.` : 'No long silences in this one', 'volume');
+  }
+  function toggleSkipSilence() {
+    saveSettings({ skipSilence: !state.settings.skipSilence });
+    if (state.settings.skipSilence) { quietFor = null; loadSilences(); }
+    else osd('Skip silence off', 'volume');
+  }
+  function checkSilence(t) {
+    if (!quiet || !quiet.length || !state.settings.skipSilence || performance.now() - lastSkip < 1500) return;
+    const gap = quiet.find(([a, b]) => t >= a + 0.25 && t < b - 0.5);
+    if (!gap) return;
+    lastSkip = performance.now();
+    seek(gap[1] - 0.3);
+    osd(`Skipped ${Math.round(gap[1] - t)}s of silence`, 'forward');
+  }
+
+  // ---------- save a clip: the A to B loop, or the last 30 seconds ----------
+  async function saveClip() {
+    if (!state.item || state.item.url) return osd('Clips work on files on this PC');
+    const t = currentTime();
+    const [a, b] = state.loopA != null && state.loopB != null ? [state.loopA, state.loopB] : [Math.max(0, t - 30), t];
+    if (b - a < 1) return osd('Play a little first, or set a loop with X');
+    osd(`Saving a ${Math.round(b - a)} second clip`, 'camera');
+    try {
+      const out = await host.saveClip(state.item.path, a, b, state.item.title || state.item.name);
+      osd('Clip saved in Videos, Kaleido clips', 'camera');
+      emit('clip', out);
+      return out;
+    } catch (e) { osd("Couldn't save that clip"); }
+  }
+
+  // ---------- pause when you lock the PC or it goes to sleep ----------
+  let awayPaused = false;
+  host.onSystem(ev => {
+    if (ev === 'away' && state.playing && state.settings.pauseOnLock !== false) { pause(); awayPaused = true; }
+    if (ev === 'back' && awayPaused) { awayPaused = false; osd('Paused while you were away. Space to carry on.', 'pause'); }
+  });
+  const togglePauseOnLock = () => { saveSettings({ pauseOnLock: state.settings.pauseOnLock === false }); osd(state.settings.pauseOnLock === false ? 'Keeps playing when the PC locks' : 'Pauses when the PC locks', 'pin'); };
+
+  // ---------- dialogue search ----------
+  const dialogueCache = new Map();
+  function dialogue() {
+    if (!state.item) return Promise.resolve(null);
+    const p = state.item.path;
+    if (!dialogueCache.has(p)) dialogueCache.set(p, host.dialogue(p));
+    return dialogueCache.get(p);
+  }
+
   function setAudioTrack(id) {
     send({ cmd: 'audioTrack', id });
     set({ audioTrack: id });
     const t = state.audioTracks.find(x => x.id === id);
+    rememberLang('audio', t);
     osd(`Audio: ${t ? t.name : 'off'}`, 'audio');
   }
   function cycleAudioTrack() {
@@ -522,9 +640,11 @@ export function createEngine() {
     setAudioTrack(ts[(i + 1) % ts.length].id);
   }
   function setSubtitleTrack(id) {
+    replay = null;
     send({ cmd: 'spuTrack', id });
     set({ subtitleTrack: id });
     const t = state.subtitleTracks.find(x => x.id === id);
+    rememberLang('sub', t);
     osd(`Subtitles: ${t ? t.name : 'off'}`, 'subtitles');
   }
   function cycleSubtitleTrack() {
@@ -758,6 +878,7 @@ export function createEngine() {
     setEq, applyEqPreset, setAdjust, resetAdjust, setDeinterlace, toggleNightMode,
     thumb, poster, reopen, setVisualizer,
     holdNext, isHeld, addMark, removeMark, jumpMark,
+    whatDidTheySay, toggleSkipSilence, saveClip, togglePauseOnLock, dialogue,
     thumbAt, duration, barcode, scanLibrary, addLibraryFolder, removeLibraryFolder, galleryItems, showLibrary,
   };
   return api;

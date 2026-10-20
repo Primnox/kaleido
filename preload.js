@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('host', {
   stat: file => invoke('media:stat', file),
   duration: file => invoke('media:duration', file),
   barcode: (file, cols) => invoke('media:barcode', file, cols),
+  dialogue: file => invoke('media:dialogue', file),
+  silences: file => invoke('media:silences', file),
+  saveClip: (file, start, end, name) => invoke('clip:save', file, start, end, name),
   scanLibrary: folders => invoke('library:scan', folders),
   defaultLibrary: () => invoke('library:defaults'),
   pickFolder: () => invoke('dialog:pickFolder'),
@@ -44,5 +47,6 @@ contextBridge.exposeInMainWorld('host', {
   onFullScreen: listen('fullscreen'),
   onMaximized: listen('maximized'),
   onEngineRestarted: listen('engine-restarted'),
-  debug: { capture: name => invoke('debug:capture', name), quit: () => invoke('debug:quit') },
+  onSystem: listen('system'),
+  debug: { capture: name => invoke('debug:capture', name), quit: () => invoke('debug:quit'), system: ev => invoke('debug:system', ev) },
 });
