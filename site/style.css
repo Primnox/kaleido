@@ -145,6 +145,15 @@ h1 { font-size: clamp(64px, 9vw, 128px); line-height: 0.95; animation: rise 0.9s
 .theme-shot img { transition: opacity 0.35s; }
 
 /* download */
+.platforms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 36px; text-align: left; }
+.platform { display: flex; flex-direction: column; gap: 10px; padding: 24px; border-radius: 18px; background: var(--bg); transition: background-color 0.6s, box-shadow 0.3s; }
+.platform.yours { box-shadow: 0 0 0 2px var(--accent); }
+.platform h3 { font: italic 400 32px "Instrument Serif", Georgia, serif; margin: 0; }
+.platform .fine { margin: -6px 0 6px; }
+.platform .btn { width: 100%; }
+.platform .note { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+.center-note { text-align: center; margin-top: 26px !important; }
+@media (max-width: 860px) { .platforms { grid-template-columns: 1fr; } }
 .download { margin: 140px auto 0; text-align: center; padding: 80px 20px; border-radius: 28px; background: var(--bg-2); transition: background-color 0.6s; }
 .dl-mark { width: 84px; margin: 0 auto 18px; animation: turn 18s linear infinite; }
 @keyframes turn { to { transform: rotate(360deg); } }

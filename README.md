@@ -38,7 +38,13 @@ ffmpeg is optional and only used for frame previews, the colour line at the end,
 
 ## Download
 
-Windows 10 and 11, 64-bit: get the installer or the portable version from the [releases page](https://github.com/Primnox/kaleido/releases/latest), or visit [primnox.github.io/kaleido](https://primnox.github.io/kaleido/). Both carry VLC and FFmpeg inside, so nothing else needs installing. The installer is not code signed yet, so Windows SmartScreen may ask you to choose More info, then Run anyway.
+From the [releases page](https://github.com/Primnox/kaleido/releases/latest) or [primnox.github.io/kaleido](https://primnox.github.io/kaleido/):
+
+- **Windows 10 and 11:** `Kaleido-Setup-<version>.exe` or the portable `.exe`. Not code signed yet, so SmartScreen may ask you to choose More info, then Run anyway.
+- **macOS 11 or newer:** `Kaleido-<version>-mac-arm64.dmg` for Apple Silicon, `-mac-x64.dmg` for Intel. Not signed by Apple yet, so the first time right click Kaleido in Applications and choose Open.
+- **Linux:** `.deb` (pulls in VLC) or `.AppImage` (needs VLC installed: `sudo apt install vlc`).
+
+Windows and Mac downloads carry VLC and FFmpeg inside.
 
 ## Build the installers
 
@@ -46,7 +52,7 @@ Windows 10 and 11, 64-bit: get the installer or the portable version from the [r
 npm run dist
 ```
 
-`scripts/stage.js` gathers the engine, a trimmed VLC (with a fresh plugin cache) and FFmpeg into `staging/`, then electron-builder writes `dist/Kaleido-Setup-<version>.exe` and `dist/Kaleido-<version>-Portable.exe`. The website lives in `site/`; `node scripts/build-site.js` refreshes the logo and doodles it shares with the app.
+`scripts/stage.js` gathers the engine, VLC and FFmpeg for the current system into `staging/`, then electron-builder writes the installers to `dist/`. The [Build installers](.github/workflows/build.yml) workflow does this on Windows, macOS (Apple Silicon and Intel) and Linux runners, and publishes a release when a `v*` tag is pushed. The website lives in `site/`; `node scripts/build-site.js` refreshes the logo and doodles it shares with the app.
 
 ## Run it from source
 

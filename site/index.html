@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kaleido, a video player with VLC's engine</title>
-<meta name="description" content="Kaleido plays anything VLC plays, remembers where you stopped, and warms the room when you pause. Free and open source for Windows.">
+<meta name="description" content="Kaleido plays anything VLC plays, remembers where you stopped, and warms the room when you pause. Free and open source for Windows, macOS and Linux.">
 <meta property="og:title" content="Kaleido">
 <meta property="og:description" content="A video player with VLC's engine and a quiet interface. Pausing warms the room.">
 <meta property="og:image" content="https://primnox.github.io/kaleido/media/og.png">
@@ -34,10 +34,10 @@
       <svg class="underline" viewBox="0 0 300 24" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M4 15 C 60 4, 120 22, 180 11 S 270 8, 296 14"/></svg>
       <p class="tag">Plays anything VLC plays.<br>Remembers where you stopped.<br>Warms the room when you pause.</p>
       <div class="ctas">
-        <a class="btn primary" data-dl="setup" href="https://github.com/Primnox/kaleido/releases/latest">Download for Windows</a>
+        <a class="btn primary" id="heroDownload" data-dl="setup" href="https://github.com/Primnox/kaleido/releases/latest">Download for Windows</a>
         <a class="btn" href="https://github.com/Primnox/kaleido">Source on GitHub</a>
       </div>
-      <p class="fine">Free and open source. Windows 10 and 11, 64-bit. <a data-dl="portable" href="https://github.com/Primnox/kaleido/releases/latest">Portable version</a></p>
+      <p class="fine">Free and open source for Windows, macOS and Linux. <a href="#download">Every download</a></p>
     </div>
   </section>
 
@@ -105,12 +105,31 @@
   <section class="download reveal" id="download">
     <img class="dl-mark" src="assets/logo.svg" alt="">
     <h2>Get Kaleido</h2>
-    <p class="lede">Version <span class="ver">0.1.0</span> for Windows 10 and 11, 64-bit.</p>
-    <div class="ctas center">
-      <a class="btn primary big" data-dl="setup" href="https://github.com/Primnox/kaleido/releases/latest">Installer<small>Start menu, file associations, uninstaller</small></a>
-      <a class="btn big" data-dl="portable" href="https://github.com/Primnox/kaleido/releases/latest">Portable<small>One file, runs from anywhere</small></a>
+    <p class="lede">Version <span class="ver">0.1.0</span>. Free, open source, no account, no ads.</p>
+    <div class="platforms">
+      <div class="platform" data-os="windows">
+        <h3>Windows</h3>
+        <p class="fine">10 and 11, 64-bit</p>
+        <a class="btn primary" data-dl="setup" href="https://github.com/Primnox/kaleido/releases/latest">Installer<small>Start menu, Open with, uninstaller</small></a>
+        <a class="btn" data-dl="portable" href="https://github.com/Primnox/kaleido/releases/latest">Portable<small>One file, runs from anywhere</small></a>
+        <p class="note">Not code signed yet, so SmartScreen may ask: choose More info, then Run anyway.</p>
+      </div>
+      <div class="platform" data-os="mac">
+        <h3>macOS</h3>
+        <p class="fine">11 Big Sur or newer</p>
+        <a class="btn primary" data-dl="mac-arm64" href="https://github.com/Primnox/kaleido/releases/latest">Apple Silicon<small>M1, M2, M3, M4 Macs</small></a>
+        <a class="btn" data-dl="mac-x64" href="https://github.com/Primnox/kaleido/releases/latest">Intel<small>Older Macs</small></a>
+        <p class="note">Not signed by Apple yet: the first time, right click Kaleido in Applications and choose Open.</p>
+      </div>
+      <div class="platform" data-os="linux">
+        <h3>Linux</h3>
+        <p class="fine">64-bit</p>
+        <a class="btn primary" data-dl="deb" href="https://github.com/Primnox/kaleido/releases/latest">.deb<small>Ubuntu, Debian, Mint, Pop</small></a>
+        <a class="btn" data-dl="appimage" href="https://github.com/Primnox/kaleido/releases/latest">AppImage<small>Any distribution</small></a>
+        <p class="note">Uses your system's VLC. The .deb installs it for you; for the AppImage run sudo apt install vlc first.</p>
+      </div>
     </div>
-    <p class="fine">Both are about 180 MB because VLC and FFmpeg come inside, so nothing else needs installing. The installer is not code signed yet, so Windows may show a SmartScreen notice: choose More info, then Run anyway.</p>
+    <p class="fine center-note">VLC and FFmpeg come inside the Windows and Mac downloads, so nothing else needs installing. <a href="https://github.com/Primnox/kaleido">Source on GitHub</a></p>
   </section>
 </main>
 

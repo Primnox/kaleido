@@ -18,9 +18,30 @@ const poster = art.querySelector('.dd-poster');
 if (poster) poster.setAttribute('href', 'media/still.jpg');
 
 // Direct download links to the release files.
-document.querySelectorAll('[data-dl]').forEach(a => {
-  a.href = a.dataset.dl === 'portable' ? `${RELEASE}/Kaleido-${VERSION}-Portable.exe` : `${RELEASE}/Kaleido-Setup-${VERSION}.exe`;
-});
+const FILES = {
+  setup: `Kaleido-Setup-${VERSION}.exe`,
+  portable: `Kaleido-${VERSION}-Portable.exe`,
+  'mac-arm64': `Kaleido-${VERSION}-mac-arm64.dmg`,
+  'mac-x64': `Kaleido-${VERSION}-mac-x64.dmg`,
+  deb: `Kaleido-${VERSION}-linux-amd64.deb`,
+  appimage: `Kaleido-${VERSION}-linux-x86_64.AppImage`,
+};
+document.querySelectorAll('[data-dl]').forEach(a => { a.href = `${RELEASE}/${FILES[a.dataset.dl]}`; });
+
+// The hero button offers the build for the visitor's own system.
+(async () => {
+  const ua = navigator.userAgent;
+  let os = /Mac/.test(ua) ? 'mac' : /Linux|X11/.test(ua) && !/Android/.test(ua) ? 'linux' : 'windows';
+  let key = os === 'mac' ? 'mac-arm64' : os === 'linux' ? 'deb' : 'setup';
+  let label = os === 'mac' ? 'Download for Mac' : os === 'linux' ? 'Download for Linux' : 'Download for Windows';
+  if (os === 'mac' && navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+    try { const { architecture } = await navigator.userAgentData.getHighEntropyValues(['architecture']); if (architecture === 'x86') key = 'mac-x64'; } catch {}
+  }
+  const hero = document.getElementById('heroDownload');
+  hero.textContent = label;
+  hero.href = `${RELEASE}/${FILES[key]}`;
+  document.querySelector(`.platform[data-os="${os}"]`)?.classList.add('yours');
+})();
 
 // Theme picker: recolours the page and swaps the app screenshot to the same theme.
 const shot = document.getElementById('themeShot');
