@@ -1,7 +1,7 @@
 {
   "name": "kaleido",
   "productName": "Kaleido",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A video player with VLC's engine and a quiet interface",
   "main": "main.js",
   "scripts": {

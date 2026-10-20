@@ -33,6 +33,7 @@ The logo is a lens iris that is also a kaleidoscope: six blades, one for each co
 - `main.js` is the Electron main process. It starts the engine, restarts it if a VLC module crashes, and handles files, windows and saved state.
 - `src/core/` draws frames with WebGL and keeps the player state (`engine.js`), and holds the shared shell (keyboard, drag and drop, idle hiding).
 - `src/skins/normal/` is the default interface; `src/skins/room/` and `src/skins/prose/` are the alternatives.
+- `android/` is the Android app: the same `src/` in a WebView over libVLC for Android, which draws the picture natively under the page. A small Kotlin bridge speaks the engine's protocol, so `engine.js` runs unchanged; `src/core/native-video.js` and `src/core/touch.js` are the Android pieces.
 
 ffmpeg is optional and only used for frame previews, the colour line at the end, and posters.
 
@@ -43,8 +44,9 @@ From the [releases page](https://github.com/Primnox/kaleido/releases/latest) or 
 - **Windows 10 and 11:** `Kaleido-Setup-<version>.exe` or the portable `.exe`. Not code signed yet, so SmartScreen may ask you to choose More info, then Run anyway.
 - **macOS 11 or newer:** `Kaleido-<version>-mac-arm64.dmg` for Apple Silicon, `-mac-x64.dmg` for Intel. Not signed by Apple yet, so the first time right click Kaleido in Applications and choose Open.
 - **Linux:** `.deb` (pulls in VLC) or `.AppImage` (needs VLC installed: `sudo apt install vlc`).
+- **Android 8.0 or newer:** `Kaleido-<version>-android-arm64-v8a.apk` for nearly every phone, `-armeabi-v7a.apk` for older 32-bit ones. Not on the Play Store yet, so allow installing from your browser when Android asks. Tap for the controls, double tap a side to jump 10 seconds, swipe to seek or change the volume and brightness, and press Home while a film plays to keep it going in a small window. Dialogue search, skip silence and clips need FFmpeg and are desktop only for now.
 
-Windows and Mac downloads carry VLC and FFmpeg inside.
+Windows and Mac downloads carry VLC and FFmpeg inside; the Android APK carries VLC.
 
 ## Build the installers
 
@@ -52,7 +54,7 @@ Windows and Mac downloads carry VLC and FFmpeg inside.
 npm run dist
 ```
 
-`scripts/stage.js` gathers the engine, VLC and FFmpeg for the current system into `staging/`, then electron-builder writes the installers to `dist/`. The [Build installers](.github/workflows/build.yml) workflow does this on Windows, macOS (Apple Silicon and Intel) and Linux runners, and publishes a release when a `v*` tag is pushed. The website lives in `site/`; `node scripts/build-site.js` refreshes the logo and doodles it shares with the app.
+`scripts/stage.js` gathers the engine, VLC and FFmpeg for the current system into `staging/`, then electron-builder writes the installers to `dist/`. The [Build installers](.github/workflows/build.yml) workflow does this on Windows, macOS (Apple Silicon and Intel) and Linux runners, and publishes a release when a `v*` tag is pushed. The same workflow builds the Android APKs (signed with the release key in the repository's secrets). The website lives in `site/`; `node scripts/build-site.js` refreshes the logo and doodles it shares with the app.
 
 ## Run it from source
 
@@ -63,3 +65,12 @@ npm start
 ```
 
 `npm run setup` downloads VLC 3.0.24 from videolan.org (checksum verified) into `vendor/vlc` and builds the Rust engine. It needs the Rust toolchain with the MSVC target.
+
+For Android, open `android/` in Android Studio, or with the Android SDK and Java 21 installed:
+
+```
+cd android
+./gradlew assembleDebug
+```
+
+The build copies `src/` and the logo into the app, so desktop and Android always share one interface.
