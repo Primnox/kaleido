@@ -88,5 +88,17 @@ fs.writeFileSync(path.join(lic, 'THIRD-PARTY.txt'), [
   '',
 ].join(IS_WIN ? '\r\n' : '\n'));
 
+// Every native piece must match the architecture being packaged, or the app fails on the user's machine.
+if (!IS_WIN) {
+  const want = (process.env.KALEIDO_ARCH || process.arch) === 'arm64' ? /arm64|aarch64/ : /x86[-_]64/;
+  const pieces = [path.join(STAGE, 'engine', 'kaleido-engine'), path.join(STAGE, 'ffmpeg', 'ffmpeg')];
+  if (IS_MAC) pieces.push(path.join(STAGE, 'vlc', 'lib', 'libvlc.dylib'));
+  for (const p of pieces) {
+    const kind = String(execFileSync('file', ['-bL', p])).trim();
+    console.log(`${path.relative(STAGE, p)}: ${kind}`);
+    if (!want.test(kind) && !/universal/i.test(kind)) throw new Error(`${p} is not built for ${process.env.KALEIDO_ARCH || process.arch}`);
+  }
+}
+
 const vlcSize = fs.existsSync(path.join(STAGE, 'vlc')) ? `${(size(path.join(STAGE, 'vlc')) / 1e6).toFixed(0)} MB` : 'system';
 console.log(`staged for ${process.platform}: engine, vlc (${vlcSize}), ffmpeg (${(fs.statSync(path.join(STAGE, 'ffmpeg', `ffmpeg${EXE}`)).size / 1e6).toFixed(0)} MB), licenses`);
