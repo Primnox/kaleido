@@ -85,6 +85,8 @@ dependencies {
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity)
+    // libVLC brings in a 2018 Fragment through legacy-support; activity results need 1.3 or newer.
+    implementation(libs.androidx.fragment)
 }
 
 // The UI is the desktop app's own src/ folder (and the logo), copied in at build time so the
