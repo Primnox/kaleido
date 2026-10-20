@@ -1,6 +1,6 @@
 import { DOODLES } from './js/doodles.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const RELEASE = `https://github.com/Primnox/kaleido/releases/download/v${VERSION}`;
 const THEMES = [
   ['tungsten', 'Tungsten', '#120c08', '#f0c98a'],
@@ -25,15 +25,17 @@ const FILES = {
   'mac-x64': `Kaleido-${VERSION}-mac-x64.dmg`,
   deb: `Kaleido-${VERSION}-linux-amd64.deb`,
   appimage: `Kaleido-${VERSION}-linux-x86_64.AppImage`,
+  'android-arm64': `Kaleido-${VERSION}-android-arm64-v8a.apk`,
+  'android-v7': `Kaleido-${VERSION}-android-armeabi-v7a.apk`,
 };
 document.querySelectorAll('[data-dl]').forEach(a => { a.href = `${RELEASE}/${FILES[a.dataset.dl]}`; });
 
 // The hero button offers the build for the visitor's own system.
 (async () => {
   const ua = navigator.userAgent;
-  let os = /Mac/.test(ua) ? 'mac' : /Linux|X11/.test(ua) && !/Android/.test(ua) ? 'linux' : 'windows';
-  let key = os === 'mac' ? 'mac-arm64' : os === 'linux' ? 'deb' : 'setup';
-  let label = os === 'mac' ? 'Download for Mac' : os === 'linux' ? 'Download for Linux' : 'Download for Windows';
+  let os = /Android/.test(ua) ? 'android' : /Mac/.test(ua) ? 'mac' : /Linux|X11/.test(ua) ? 'linux' : 'windows';
+  let key = { android: 'android-arm64', mac: 'mac-arm64', linux: 'deb', windows: 'setup' }[os];
+  let label = { android: 'Download for Android', mac: 'Download for Mac', linux: 'Download for Linux', windows: 'Download for Windows' }[os];
   if (os === 'mac' && navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
     try { const { architecture } = await navigator.userAgentData.getHighEntropyValues(['architecture']); if (architecture === 'x86') key = 'mac-x64'; } catch {}
   }

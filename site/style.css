@@ -145,7 +145,7 @@ h1 { font-size: clamp(64px, 9vw, 128px); line-height: 0.95; animation: rise 0.9s
 .theme-shot img { transition: opacity 0.35s; }
 
 /* download */
-.platforms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 36px; text-align: left; }
+.platforms { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 36px; text-align: left; }
 .platform { display: flex; flex-direction: column; gap: 10px; padding: 24px; border-radius: 18px; background: var(--bg); transition: background-color 0.6s, box-shadow 0.3s; }
 .platform.yours { box-shadow: 0 0 0 2px var(--accent); }
 .platform h3 { font: italic 400 32px "Instrument Serif", Georgia, serif; margin: 0; }
