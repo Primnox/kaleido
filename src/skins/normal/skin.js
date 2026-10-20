@@ -209,10 +209,10 @@ export default {
       if (last) engine.poster(last.path, last.time || 60).then(u => { const img = art.querySelector('.dd-poster'); if (u && img) img.setAttribute('href', u); });
       const underline = h('div.nm-underline', { html: '<svg viewBox="0 0 300 24" preserveAspectRatio="none"><path pathLength="1" d="M4 15 C 60 4, 120 22, 180 11 S 270 8, 296 14"/></svg>' });
       home.replaceChildren(
-        h('header.nm-home-top', {}, h('span.nm-brand', {}, 'Kaleido'), h('div.nm-home-tools', {}, swatches, ui.windowButtons(engine))),
+        h('header.nm-home-top', {}, h('span.nm-brand', {}, h('img.nm-brand-mark', { src: '../assets/logo.svg', alt: '' }), 'Kaleido'), h('div.nm-home-tools', {}, swatches, ui.windowButtons(engine))),
         h('section.nm-hero', {}, art,
           h('div.nm-hero-text', {},
-            h('h1.nm-wordmark', {}, 'Kaleido'), underline,
+            h('div.nm-wordrow', {}, h('img.nm-mark', { src: '../assets/logo.svg', alt: '' }), h('h1.nm-wordmark', {}, 'Kaleido')), underline,
             h('p.nm-tag', {}, 'Plays anything VLC plays.', h('br'), 'Remembers where you stopped.'),
             h('div.nm-start-row', {},
               act('Open file', 'file', () => engine.openDialog(), true),

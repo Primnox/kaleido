@@ -8,7 +8,8 @@
     "start": "electron .",
     "build:engine": "cargo build --release --manifest-path engine/Cargo.toml",
     "fetch:vlc": "node scripts/fetch-vlc.js",
-    "setup": "npm run fetch:vlc && npm run build:engine"
+    "setup": "npm run fetch:vlc && npm run build:engine",
+    "icons": "electron scripts/make-icons.js"
   },
   "license": "MIT",
   "devDependencies": {

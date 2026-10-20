@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kaleido logo</title>
+<style>
+  body { margin: 0; background: #0d0c0b; color: #efe6d8; font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", sans-serif; }
+  .sheet { max-width: 1100px; margin: 0 auto; padding: 40px 28px 80px; }
+  h1 { margin: 0 0 4px; font: italic 400 40px "Sitka Banner", Georgia, serif; }
+  .row { display: grid; grid-template-columns: 300px 1fr; gap: 28px; align-items: center; margin-top: 36px; padding: 24px; border-radius: 16px; background: #15130f; }
+  .big { width: 260px; height: 260px; }
+  .name { font: 700 22px "Segoe UI Variable Display", sans-serif; }
+  .why { color: #9a9081; margin: 4px 0 16px; max-width: 520px; }
+  .sizes { display: flex; align-items: end; gap: 18px; flex-wrap: wrap; }
+  .sizes div { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #6f675b; font-size: 11px; }
+  .tile { display: grid; place-items: center; border-radius: 10px; }
+  .dark { background: #202020; } .light { background: #f3f3f3; }
+  .lockup { display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 12px 16px; border-radius: 10px; background: #0d0c0b; width: max-content; }
+  .lockup span { font: italic 400 30px "Sitka Banner", Georgia, serif; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1>Kaleido logo directions</h1>
+  <div id="rows"></div>
+</div>
+<script>
+  const TAU = Math.PI * 2;
+  const pt = (r, a) => [r * Math.cos(a), r * Math.sin(a)];
+  const poly = (pts, fill, extra = '') => `<polygon points="${pts.map(p => p.map(v => v.toFixed(2)).join(',')).join(' ')}" fill="${fill}" ${extra}/>`;
+  const THEME = ['#f0c98a', '#e2603f', '#4fe3ff', '#a8d672', '#f3a6b8', '#f4f1ea'];
+  const WARM = ['#ffcf86', '#ffb35c', '#f58a4b', '#e2603f', '#c94a5a', '#8e4a8f'];
+
+  // A: Shutter. Six play-shaped blades turn around an open hexagon, like a lens iris that is also a kaleidoscope.
+  function shutter(cols, { gap = 3.2, inner = 0.34, twist = 0.62, play = false } = {}) {
+    let s = '';
+    for (let i = 0; i < 6; i++) {
+      const a0 = i * TAU / 6 - Math.PI / 2;
+      const a1 = a0 + TAU / 6;
+      const o0 = pt(46, a0), o1 = pt(46, a1);
+      const tip = pt(46 * inner, a1 + twist);
+      s += poly([o0, o1, tip], cols[i], `stroke="#0d0c0b" stroke-width="${gap}" stroke-linejoin="round"`);
+    }
+    if (play) s += `<path d="M-5.5 -7.5 L9 0 L-5.5 7.5 Z" fill="#f3ead9" stroke="#f3ead9" stroke-width="2" stroke-linejoin="round"/>`;
+    return `<svg viewBox="-50 -50 100 100">${s}</svg>`;
+  }
+
+  // B: Prism play. One play button split into kaleidoscope shards.
+  function prism(cols) {
+    const A = [-30, -38], B = [-30, 38], C = [40, 0];
+    const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+    const ab = mid(A, B), bc = mid(B, C), ca = mid(C, A);
+    const g = 'stroke="#0d0c0b" stroke-width="2.6" stroke-linejoin="round"';
+    return `<svg viewBox="-50 -50 100 100">${poly([A, ab, ca], cols[0], g)}${poly([ab, B, bc], cols[3], g)}${poly([ca, bc, C], cols[1], g)}${poly([ab, bc, ca], cols[2], g)}</svg>`;
+  }
+
+  // C: Held frame. The paused picture held like a photograph, a sun setting in it.
+  function held() {
+    return `<svg viewBox="-50 -50 100 100">
+      <g transform="rotate(-8)">
+        <rect x="-38" y="-29" width="76" height="58" rx="4" fill="#f3ead9"/>
+        <rect x="-32" y="-23" width="64" height="40" rx="1.5" fill="#3a2717"/>
+        <circle cx="8" cy="-2" r="11" fill="#f0c98a"/>
+        <path d="M-32 9 L-18 -1 L-8 7 L4 -4 L16 6 L32 -3 L32 17 L-32 17 Z" fill="#7a3d2a"/>
+        <path d="M-6 21 l9 3 l-9 3 z" fill="#c4a87e"/>
+      </g></svg>`;
+  }
+
+  // D: Rosette. Six play triangles turning around a point, each one a theme colour.
+  function rosette(cols) {
+    let s = '';
+    for (let i = 0; i < 6; i++) {
+      const a = i * TAU / 6 - Math.PI / 2;
+      const c = pt(26, a);
+      const dir = a + Math.PI / 2;
+      const tip = [c[0] + 19 * Math.cos(dir), c[1] + 19 * Math.sin(dir)];
+      const b1 = [c[0] - 11 * Math.cos(dir) + 15 * Math.cos(dir + Math.PI / 2), c[1] - 11 * Math.sin(dir) + 15 * Math.sin(dir + Math.PI / 2)];
+      const b2 = [c[0] - 11 * Math.cos(dir) - 15 * Math.cos(dir + Math.PI / 2), c[1] - 11 * Math.sin(dir) - 15 * Math.sin(dir + Math.PI / 2)];
+      s += poly([tip, b1, b2], cols[i], 'stroke="#0d0c0b" stroke-width="2" stroke-linejoin="round"');
+    }
+    return `<svg viewBox="-50 -50 100 100">${s}</svg>`;
+  }
+
+  const variants = [
+    ['A3. Shutter, wider eye with play', 'The iris opens a little wider and a small play mark sits in its eye: the kaleidoscope you look through is the film.', shutter(THEME, { inner: 0.42, twist: 0.5, play: true, gap: 3.4 })],
+    ['A4. Shutter, wider eye', 'The same wider iris with the eye left open.', shutter(THEME, { inner: 0.42, twist: 0.5, gap: 3.4 })],
+    ['A. Shutter', 'Six blades turn around an open hexagon: a lens iris and a kaleidoscope at once. Each blade is one of the six themes. Reads at 16 px as a coloured spinning hexagon.', shutter(THEME)],
+    ['A2. Shutter, tungsten', 'The same iris in one warm family, closer to the paused room.', shutter(WARM)],
+    ['B. Prism play', 'One play button cut into four shards. Simple, but play triangles are everywhere.', prism(THEME)],
+    ['C. Held frame', 'The pause feature as a mark: the picture held like a photograph. Warm and specific, weaker at tiny sizes.', held()],
+    ['D. Rosette', 'Six play buttons chasing each other around a point.', rosette(THEME)],
+  ];
+  const html = variants.map(([name, why, svg]) => `
+    <div class="row">
+      <div class="big">${svg}</div>
+      <div>
+        <div class="name">${name}</div>
+        <div class="why">${why}</div>
+        <div class="sizes">${[16, 24, 32, 48, 64].map(px => `<div><div class="tile dark" style="width:${px + 16}px;height:${px + 16}px"><div style="width:${px}px;height:${px}px">${svg}</div></div>${px}</div>`).join('')}
+          <div><div class="tile light" style="width:64px;height:64px"><div style="width:48px;height:48px">${svg}</div></div>light</div>
+        </div>
+        <div class="lockup"><div style="width:40px;height:40px">${svg}</div><span>Kaleido</span></div>
+      </div>
+    </div>`).join('');
+  document.getElementById('rows').innerHTML = html;
+</script>
+</body>
+</html>

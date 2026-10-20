@@ -1,3 +1,5 @@
+<img src="assets/logo.svg" width="96" alt="Kaleido logo">
+
 # Kaleido
 
 A video player with VLC's engine and a plain, quiet interface. It plays everything VLC plays.
@@ -22,6 +24,8 @@ Things the big desktop players (VLC, mpv, PotPlayer, IINA, MPC) do not do:
 - **Pauses when you lock the PC** or it goes to sleep, and tells you when you are back.
 
 Two other interfaces are still in the project as alternatives (Ctrl+Tab): The room and Prose.
+
+The logo is a lens iris that is also a kaleidoscope: six blades, one for each colour theme, opening onto a play mark. `assets/logo.svg` is the source; `npm run icons` rebuilds `assets/icon.ico` and the PNGs from it.
 
 ## How it works
 

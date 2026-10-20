@@ -111,7 +111,13 @@ body.k-idle .nm-top, body.k-idle .nm-bottom { opacity: 0; }
 .nm[data-mode="home"] .nm-home { display: flex; }
 .nm-home-top { display: flex; justify-content: space-between; align-items: center; padding-left: 20px; min-height: 40px; -webkit-app-region: drag; position: sticky; top: 0; background: var(--nm-home-bg); z-index: 3; transition: background-color 0.6s; }
 .nm-home-tools { display: flex; align-items: center; gap: 14px; }
-.nm-brand { font-weight: 700; font-size: 14px; letter-spacing: 0.02em; color: var(--nm-home-muted); }
+.nm-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; letter-spacing: 0.02em; color: var(--nm-home-muted); }
+.nm-brand-mark { width: 18px; height: 18px; }
+/* the logo spins into place beside the wordmark, like an iris opening */
+.nm-wordrow { display: flex; align-items: center; gap: clamp(12px, 1.4vw, 20px); }
+.nm-mark { width: clamp(48px, 5.6vw, 80px); height: auto; animation: nm-iris 1.3s cubic-bezier(0.2, 0.9, 0.2, 1) both; transition: transform 0.6s cubic-bezier(0.2, 0.9, 0.2, 1); }
+.nm-mark:hover { transform: rotate(60deg); }
+@keyframes nm-iris { from { opacity: 0; transform: rotate(-150deg) scale(0.55); } }
 .nm-swatches { display: flex; gap: 7px; -webkit-app-region: no-drag; }
 .nm-swatch { width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 0; cursor: pointer; box-shadow: 0 0 0 1px color-mix(in srgb, var(--nm-home-fg) 25%, transparent); transition: transform 0.2s, box-shadow 0.2s; }
 .nm-swatch:hover { transform: scale(1.15); }
@@ -122,7 +128,7 @@ body.k-idle .nm-top, body.k-idle .nm-bottom { opacity: 0; }
 .nm-dd-wrap { position: absolute; inset: 0 2% 0 0; }
 .nm-hero-text { position: absolute; left: 6%; top: 30%; width: min(440px, 40%); z-index: 2; }
 .nm-wordmark { position: relative; display: inline-block; margin: 0; font: italic 400 clamp(46px, 6vw, 84px) / 1 var(--nm-serif); letter-spacing: -0.01em; color: var(--nm-home-fg); animation: nm-rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.nm-underline { display: block; width: clamp(180px, 17vw, 300px); height: 22px; margin: 2px 0 0 6px; }
+.nm-underline { display: block; width: clamp(180px, 17vw, 300px); height: 22px; margin: 2px 0 0 calc(clamp(48px, 5.6vw, 80px) + clamp(12px, 1.4vw, 20px) + 4px); }
 .nm-underline svg { width: 100%; height: 100%; overflow: visible; }
 .nm-underline path { fill: none; stroke: var(--nm-accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: dd-draw 1.2s cubic-bezier(0.5, 0, 0.2, 1) 0.5s forwards; transition: stroke 0.6s; }
 .nm-tag { margin: 18px 0 22px; font-size: clamp(14px, 1.2vw, 17px); line-height: 1.55; color: var(--nm-home-muted); animation: nm-rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s both; }

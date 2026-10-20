@@ -443,7 +443,7 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 760, minWidth: 420, minHeight: 260,
     frame: false, backgroundColor: '#000000', show: false, title: 'Kaleido',
-    icon: path.join(VLC_DIR, 'vlc.ico'),
+    icon: path.join(ROOT, 'assets', 'icon.ico'),
     webPreferences: { preload: path.join(ROOT, 'preload.js'), contextIsolation: true, sandbox: true },
   });
   win.loadFile(path.join(ROOT, 'src', 'index.html'), process.env.KALEIDO_SKIN ? { query: { skin: process.env.KALEIDO_SKIN } } : undefined);
@@ -499,6 +499,7 @@ else {
     const files = argvFiles(argv);
     if (files.length) win.webContents.send('open-files', files);
   });
+  app.setAppUserModelId('app.kaleido.player');
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
     // Locking the PC or putting it to sleep pauses the film; the UI decides what to say when you return.

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100" width="512" height="512">
+  <!-- Kaleido: six iris blades, one per colour theme, opening onto the film -->
+  <polygon points="0,-46 39.84,-23 39.84,23 0,46 -39.84,23 -39.84,-23" fill="#0d0c0b" stroke="#0d0c0b" stroke-width="3.4" stroke-linejoin="round"/>
+  <g stroke="#0d0c0b" stroke-width="3.4" stroke-linejoin="round">
+    <polygon points="0,-46 39.84,-23 19.31,-0.46" fill="#f4f1ea"/>
+    <polygon points="39.84,-23 39.84,23 10.05,16.5" fill="#f0c98a"/>
+    <polygon points="39.84,23 0,46 -9.26,16.95" fill="#e2603f"/>
+    <polygon points="0,46 -39.84,23 -19.31,0.46" fill="#4fe3ff"/>
+    <polygon points="-39.84,23 -39.84,-23 -10.05,-16.5" fill="#a8d672"/>
+    <polygon points="-39.84,-23 0,-46 9.26,-16.95" fill="#f3a6b8"/>
+  </g>
+  <path d="M-5.5 -7.5 L9 0 L-5.5 7.5 Z" fill="#f3ead9" stroke="#f3ead9" stroke-width="2" stroke-linejoin="round"/>
+</svg>
