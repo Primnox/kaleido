@@ -40,7 +40,9 @@ async function download(url) {
   if (process.platform === 'win32') {
     const zip = path.join(vendor, 'vlc.zip');
     fs.writeFileSync(zip, await download(`https://download.videolan.org/pub/videolan/vlc/${VERSION}/win64/vlc-${VERSION}-win64.zip`));
-    execFileSync('tar', ['-xf', zip, '-C', vendor]);
+    // Windows' own tar (bsdtar) reads zips; a GNU tar from Git Bash would take "D:\" for a remote host.
+    const tar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
+    execFileSync(fs.existsSync(tar) ? tar : 'tar', ['-xf', zip, '-C', vendor]);
     fs.renameSync(path.join(vendor, `vlc-${VERSION}`), target);
     fs.unlinkSync(zip);
   } else if (process.platform === 'darwin') {
