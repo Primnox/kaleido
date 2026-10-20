@@ -157,8 +157,9 @@ export default {
     function hold(s) {
       photo = true;
       engine.surface.setTrim(true);
-      wrap.classList.add('nm-holding');
-      placeStage();
+      // On Android the picture is drawn natively; freeze() puts the current frame on the page first.
+      const lift = () => { if (!photo) return; wrap.classList.add('nm-holding'); placeStage(); };
+      if (engine.surface.freeze) engine.surface.freeze().then(lift); else lift();
       const ar = engine.surface.contentAspect();
       const t = engine.currentTime();
       const stills = h('div.nm-stills', {}, [3, 2, 1].map(k => {

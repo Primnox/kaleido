@@ -144,28 +144,28 @@ function commands() {
     ['Audio earlier', 'Ctrl+G', () => e.audioDelayBy(-50)],
     ['Audio later', 'Ctrl+H', () => e.audioDelayBy(50)],
     ['Reset speed', '=', () => e.setRate(1)],
-    ['Next frame', 'E', () => e.frameStep()],
+    e.can('frameStep') && ['Next frame', 'E', () => e.frameStep()],
     ['Take snapshot', 'Shift+S', () => e.screenshot()],
     ['A to B loop', 'X', () => e.cycleLoop()],
     ['Cycle aspect ratio', 'A', () => e.cycleAspect()],
     ['Reset zoom', 'Shift+Z', () => e.setZoom(1)],
     ['Shuffle', 'R', () => e.toggleShuffle()],
     ['Cycle repeat', 'Shift+R', () => e.cycleRepeat()],
-    ['Always on top', 'Ctrl+T', () => e.toggleAlwaysOnTop()],
-    ['Picture in picture', 'Ctrl+P', () => e.togglePip()],
+    e.can('alwaysOnTop') && ['Always on top', 'Ctrl+T', () => e.toggleAlwaysOnTop()],
+    e.can('windowButtons') && ['Picture in picture', 'Ctrl+P', () => e.togglePip()],
     ['Mini player', 'Ctrl+M', () => e.toggleMini()],
     ['Bookmark this moment', 'Ctrl+D', () => e.addMark()],
     ['What did they say? Replay with subtitles', 'W', () => e.whatDidTheySay()],
-    ['Search what they say', '/', () => shell.searchDialogue()],
-    ['Save a clip (the loop, or the last 30 seconds)', 'C', () => e.saveClip()],
-    [s.settings.skipSilence ? 'Stop skipping silence' : 'Skip silence', '', () => e.toggleSkipSilence()],
-    [s.settings.pauseOnLock === false ? 'Pause when the PC locks' : 'Keep playing when the PC locks', '', () => e.togglePauseOnLock()],
+    e.can('dialogue') && ['Search what they say', '/', () => shell.searchDialogue()],
+    e.can('clips') && ['Save a clip (the loop, or the last 30 seconds)', 'C', () => e.saveClip()],
+    e.can('silence') && [s.settings.skipSilence ? 'Stop skipping silence' : 'Skip silence', '', () => e.toggleSkipSilence()],
+    e.can('pauseOnLock') && [s.settings.pauseOnLock === false ? 'Pause when the PC locks' : 'Keep playing when the PC locks', '', () => e.togglePauseOnLock()],
     ['Next bookmark', 'Ctrl+.', () => e.jumpMark(1)],
     ['Previous bookmark', 'Ctrl+;', () => e.jumpMark(-1)],
     ['Show playlist', 'Ctrl+L', () => shell.command('playlist')],
     ['Show effects (EQ, picture, sync)', 'Ctrl+E', () => shell.command('effects')],
     ['Show media info', 'Ctrl+I', () => shell.command('info')],
-    ['Keyboard shortcuts', '?', () => shell.showShortcuts()],
+    e.can('keyboard') && ['Keyboard shortcuts', '?', () => shell.showShortcuts()],
     SKINS.length > 1 && ['Template gallery', 'Ctrl+,', () => shell.openSkinPicker()],
     ['Show library', 'Ctrl+B', () => e.showLibrary(e.state.view !== 'library')],
     ['Add a folder to the library', '', () => e.addLibraryFolder()],
@@ -456,6 +456,8 @@ async function setSkin(id, { live = false } = {}) {
 
 // ---------- boot ----------
 document.documentElement.dataset.platform = window.host.platform;
+// Phones and tablets: taps and swipes instead of a mouse and keyboard.
+if (!engine.can('keyboard')) import('./touch.js').then(m => m.enableTouch(engine, stage));
 (async () => {
   await engine.restore();
   engine.connect();

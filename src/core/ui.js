@@ -3,8 +3,10 @@ import { fmt, ASPECTS, RATES, DEINTERLACE } from './engine.js';
 
 // ---------- DOM helper ----------
 export function h(tag, props, ...children) {
-  const [name, ...classes] = tag.split('.');
+  const [head, ...classes] = tag.split('.');
+  const [name, id] = head.split('#');
   const el = document.createElement(name || 'div');
+  if (id) el.id = id;
   if (classes.length) el.className = classes.join(' ');
   for (const [k, v] of Object.entries(props || {})) {
     if (v == null || v === false) continue;
@@ -371,7 +373,7 @@ export const menus = {
       ...s.subtitleTracks.map(t => ({ label: t.name, checked: t.id === s.subtitleTrack, onSelect: () => e.setSubtitleTrack(t.id) })),
       { label: 'Add subtitle file', icon: 'plus', onSelect: () => e.openSubtitleDialog() },
       { label: 'What did they say?', icon: 'rewind', hint: 'W', onSelect: () => e.whatDidTheySay() },
-      { label: 'Search what they say', icon: 'search', hint: '/', onSelect: () => (window.kaleido ? window.kaleido.shell.searchDialogue() : null) },
+      e.can('dialogue') && { label: 'Search what they say', icon: 'search', hint: '/', onSelect: () => (window.kaleido ? window.kaleido.shell.searchDialogue() : null) },
       { heading: 'Timing and size' },
       { label: 'Delay', hint: 'G and H', items: () => [-1000, -500, -250, -100, 0, 100, 250, 500, 1000].map(d => ({ label: d === 0 ? 'In sync' : `${d > 0 ? '+' : ''}${d} ms`, checked: s.subtitleDelay === d, onSelect: () => e.setSubtitleDelay(d) })) },
       { label: 'Size', items: () => [60, 80, 100, 125, 150, 200].map(p => ({ label: `${p}%`, checked: s.subtitleScale === p, onSelect: () => e.setSubtitleScale(p) })) },
@@ -403,21 +405,21 @@ export const menus = {
       s.item && s.chapters.length > 0 && { label: 'Chapters', items: () => menus.chapters(e) },
       s.item && { label: 'Aspect ratio', hint: 'A', items: () => menus.aspect(e) },
       s.item && { label: 'Zoom', hint: 'Z', items: () => menus.zoom(e) },
-      s.item && { label: 'Deinterlace', items: () => menus.deinterlace(e) },
+      s.item && e.can('deinterlace') && { label: 'Deinterlace', items: () => menus.deinterlace(e) },
       s.item && { label: 'Take snapshot', icon: 'camera', hint: 'Shift+S', onSelect: () => e.screenshot() },
-      s.item && { label: s.loopA != null && s.loopB != null ? 'Save the loop as a clip' : 'Save the last 30 seconds', icon: 'frame', hint: 'C', onSelect: () => e.saveClip() },
-      s.item && { label: 'Skip silence', checked: !!s.settings.skipSilence, onSelect: () => e.toggleSkipSilence() },
+      s.item && e.can('clips') && { label: s.loopA != null && s.loopB != null ? 'Save the loop as a clip' : 'Save the last 30 seconds', icon: 'frame', hint: 'C', onSelect: () => e.saveClip() },
+      s.item && e.can('silence') && { label: 'Skip silence', checked: !!s.settings.skipSilence, onSelect: () => e.toggleSkipSilence() },
       s.item && { label: s.loopA == null ? 'Set loop start' : s.loopB == null ? 'Set loop end' : 'Clear loop', icon: 'loop', hint: 'X', onSelect: () => e.cycleLoop() },
       { heading: 'Window' },
       { label: 'Fullscreen', checked: s.fullscreen, hint: 'F', onSelect: () => e.toggleFullscreen() },
-      { label: 'Always on top', checked: s.alwaysOnTop, hint: 'Ctrl+T', onSelect: () => e.toggleAlwaysOnTop() },
-      { label: 'Pause when the PC locks', checked: s.settings.pauseOnLock !== false, onSelect: () => e.togglePauseOnLock() },
-      { label: 'Picture in picture', icon: 'pip', hint: 'Ctrl+P', onSelect: () => e.togglePip() },
+      e.can('alwaysOnTop') && { label: 'Always on top', checked: s.alwaysOnTop, hint: 'Ctrl+T', onSelect: () => e.toggleAlwaysOnTop() },
+      e.can('pauseOnLock') && { label: 'Pause when the PC locks', checked: s.settings.pauseOnLock !== false, onSelect: () => e.togglePauseOnLock() },
+      { label: 'Picture in picture', icon: 'pip', hint: 'Ctrl+P', onSelect: () => (e.can('windowButtons') ? e.togglePip() : e.toggleMini()) },
       { heading: 'Kaleido' },
       { label: 'Templates', icon: 'skin', hint: 'Ctrl+,', onSelect: () => shell.openSkinPicker() },
       { label: s.view === 'library' ? 'Back to the player' : 'Library', icon: 'folder', hint: 'Ctrl+B', onSelect: () => e.showLibrary(s.view !== 'library') },
       { label: 'Command palette', icon: 'search', hint: 'Ctrl+K', onSelect: () => shell.openPalette() },
-      { label: 'Keyboard shortcuts', icon: 'keyboard', hint: '?', onSelect: () => shell.showShortcuts() },
+      e.can('keyboard') && { label: 'Keyboard shortcuts', icon: 'keyboard', hint: '?', onSelect: () => shell.showShortcuts() },
     ];
   },
 };
@@ -584,7 +586,7 @@ export function ambient(engine, { fps = 12, w = 48, h = 27, cls = 'k-ambient' } 
     raf = requestAnimationFrame(loop);
     if (now - last < 1000 / fps || !c.isConnected) return;
     last = now;
-    if (engine.surface.hasFrame) ctx.drawImage(engine.canvas, 0, 0, w, h);
+    if (engine.surface.hasFrame) ctx.drawImage(engine.surface.source || engine.canvas, 0, 0, w, h);
   };
   raf = requestAnimationFrame(loop);
   c.destroy = () => cancelAnimationFrame(raf);

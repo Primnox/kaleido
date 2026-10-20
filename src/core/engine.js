@@ -1,8 +1,11 @@
 // Player state for the UI. Talks to the libVLC engine over a local WebSocket and keeps
 // one plain state object that every skin reads. See docs/SKIN_API.md for the contract.
 import { createVideoSurface } from './video.js';
+import { createNativeSurface } from './native-video.js';
 
 const host = window.host;
+// Features a platform can lack (Android has no FFmpeg, no window manager and no keyboard).
+export const can = feature => !(host.features && host.features[feature] === false);
 const baseName = p => (/^[a-z][a-z0-9+.-]*:\/\//i.test(p) ? decodeURIComponent(p.split(/[?#]/)[0].split('/').filter(Boolean).pop() || p) : p.split(/[\\/]/).pop());
 const stripExt = n => n.replace(/\.[a-z0-9]{1,5}$/i, '');
 const AUDIO_EXT = /\.(mp3|m4a|aac|flac|wav|ogg|oga|opus|wma|alac|aiff?|ape|mka|wv)$/i;
@@ -20,7 +23,7 @@ const junkTitle = t => !t || /(^|\s)(www\.|https?:)|^[\w-]+(\.[\w-]+)+$|\.[a-z]{
 // become the title a person would say: "Film (2025)". Episode tags survive ("Show S01E02").
 const QUALITY = /\b(2160p|1080p|720p|576p|480p|4k|uhd|hdr10?|dv|web[- .]?dl|web[- .]?rip|webrip|bluray|blu[- ]ray|brrip|bdrip|hdrip|dvdrip|hdtv|x26[45]|h\.?26[45]|hevc|avc|aac|ac3|eac3|ddp?\s?5[ .]1|dts|atmos|10bit|8bit|true|proper|repack|extended|uncut|remastered|esubs?|hc|cam|hdcam|predvd|org|multi|dual audio)\b/i;
 export function cleanName(raw) {
-  let n = String(raw || '').replace(/\.[a-z0-9]{2,5}$/i, '');
+  let n = String(raw || '').replace(/\.(?=[a-z0-9]*[a-z])[a-z0-9]{2,5}$/i, '');
   if (!/\s/.test(n) && /[._]/.test(n)) n = n.replace(/[._]+/g, ' ');
   n = n.replace(/^\s*(www[.\s])?[\w-]+[.\s](com|net|org|in|co|me|to|tv|cc|ws|io|xyz|site|clothing|[a-z]{2,10})\s+-\s+/i, m => (/www|\.(com|net|org|in|co|me|to|tv|cc|ws|io|xyz|site)\b/i.test(m) || /^www/i.test(m) ? '' : m));
   n = n.replace(/^\s*www[.\s][^-]*-\s*/i, '');
@@ -30,7 +33,7 @@ export function cleanName(raw) {
   n = n.replace(/[_]+/g, ' ').replace(/\s+-\s*$|^\s*-\s+/g, '').replace(/\s{2,}/g, ' ').trim().replace(/[\s-]+$/, '');
   const year = /^(.*\S)\s+((19|20)\d{2})$/.exec(n);
   if (year) n = `${year[1]} (${year[2]})`;
-  return n || String(raw || '').replace(/\.[a-z0-9]{2,5}$/i, '');
+  return n || String(raw || '').replace(/\.(?=[a-z0-9]*[a-z])[a-z0-9]{2,5}$/i, '');
 }
 
 export const ASPECTS = ['auto', '16:9', '4:3', '21:9', '2.39:1', '1:1', 'fill', 'crop'];
@@ -39,7 +42,8 @@ export const DEINTERLACE = ['', 'blend', 'bob', 'linear', 'x', 'yadif', 'yadif2x
 const DEFAULT_ADJUST = { enabled: false, brightness: 1, contrast: 1, saturation: 1, hue: 0, gamma: 1 };
 
 export function createEngine() {
-  const surface = createVideoSurface();
+  // On Android libVLC draws natively under the page; the desktop draws VLC's frames with WebGL.
+  const surface = host.nativeVideo ? createNativeSurface(host) : createVideoSurface();
   const listeners = new Map();
   const on = (ev, fn) => {
     if (!listeners.has(ev)) listeners.set(ev, new Set());
@@ -144,7 +148,7 @@ export function createEngine() {
   async function connect(info) {
     try { info = info || await host.engineInfo(); }
     catch (e) { set({ status: 'error', error: String(e.message || e) }); return; }
-    const sock = new WebSocket(`ws://127.0.0.1:${info.port}/?k=${info.token}`);
+    const sock = host.connectEngine ? host.connectEngine() : new WebSocket(`ws://127.0.0.1:${info.port}/?k=${info.token}`);
     sock.binaryType = 'arraybuffer';
     sock.onopen = () => {
       ws = sock;
@@ -161,6 +165,8 @@ export function createEngine() {
       setTimeout(() => connect(), 800);
     };
   }
+  if (surface.sync) on('change', surface.sync);
+  if (host.onMini) host.onMini(v => set({ mini: v }));
   host.onEngineRestarted(info => {
     if (ws) try { ws.close(); } catch {}
     connect(info).then(() => { if (state.item) reopen(); });
@@ -713,7 +719,7 @@ export function createEngine() {
     const on = !state.mini;
     set({ mini: on });
     await host.win.mini(on);
-    osd(on ? 'Mini player. Ctrl+M to go back.' : 'Back to the full window', 'mini');
+    if (can('keyboard')) osd(on ? 'Mini player. Ctrl+M to go back.' : 'Back to the full window', 'mini');
   }
   host.onFullScreen(v => set({ fullscreen: v }));
   host.onMaximized(v => set({ maximized: v }));
@@ -863,7 +869,7 @@ export function createEngine() {
   window.addEventListener('beforeunload', () => saveResume());
 
   const api = {
-    state, surface, canvas: surface.canvas, on, set, osd, currentTime, fmt, fileUri,
+    state, surface, canvas: surface.canvas, on, set, osd, currentTime, fmt, fileUri, can,
     restore, connect, saveSettings,
     open, openDialog, openFolderDialog, openSubtitleDialog, openUrl, addSubtitle, forgetRecent,
     play, pause, toggle, stop, seek, seekBy, seekPercent,

@@ -244,3 +244,20 @@ body.k-idle .nm-top, body.k-idle .nm-bottom { opacity: 0; }
 .nm.nm-mini .nm-bottom { padding: 18px 8px 2px; }
 .nm.nm-mini .nm-left > :not(.nm-play), .nm.nm-mini .nm-right > :not(.nm-mini-btn) { display: none; }
 .nm.nm-mini .nm-held { display: none; }
+
+/* ---------- Android: clear of camera cutouts and system bars, with thumb-sized buttons ---------- */
+[data-platform="android"] .nm-top { padding: var(--k-safe-top, 0px) calc(8px + var(--k-safe-right, 0px)) 0 calc(20px + var(--k-safe-left, 0px)); }
+[data-platform="android"] .nm-bottom { padding: 40px calc(14px + var(--k-safe-right, 0px)) calc(8px + var(--k-safe-bottom, 0px)) calc(14px + var(--k-safe-left, 0px)); }
+[data-platform="android"] .nm-bottom .k-btn { padding: 9px; }
+[data-platform="android"] .nm-home { padding: var(--k-safe-top, 0px) var(--k-safe-right, 0px) var(--k-safe-bottom, 0px) var(--k-safe-left, 0px); }
+[data-platform="android"] .nm-home-top { padding-right: 16px; }
+[data-platform="android"] .nm-stills .nm-still:hover { transform: none; }
+[data-platform="android"] .nm-hint { display: none; }
+
+/* ---------- narrow screens (a phone held upright): the words first, the doodles under them ---------- */
+@media (max-width: 640px) {
+  .nm-hero { height: auto; display: flex; flex-direction: column; }
+  .nm-hero-text { position: relative; left: auto; top: auto; width: auto; padding: 36px 24px 0; }
+  .nm-dd-wrap { position: relative; inset: auto; height: 250px; margin-top: 8px; }
+  .nm-home-body { padding: 0 18px 32px; }
+}

@@ -5,3 +5,9 @@ vendor/
 engine/target/
 staging/
 dist/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.kotlin/
+*.jks

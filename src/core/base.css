@@ -246,3 +246,10 @@ kbd { font: 12px var(--k-mono); padding: 2px 7px; border-radius: 6px; background
 /* macOS draws its own traffic light buttons at the top left */
 [data-platform="darwin"] .k-winbtns { display: none !important; }
 [data-platform="darwin"] .nm-top, [data-platform="darwin"] .nm-home-top, [data-platform="darwin"] .pr-top, [data-platform="darwin"] .rm-top { padding-left: 84px; }
+
+/* ---------- Android: libVLC draws the picture under the page ---------- */
+/* While the native picture is live, everything between it and the controls is see-through. */
+html.k-native-live, html.k-native-live body, html.k-native-live .k-stage, html.k-native-live .k-skin-root > * { background: transparent !important; }
+[data-platform="android"] .k-stage { touch-action: none; }
+[data-platform="android"] .k-winbtns, [data-platform="android"] .k-menu-hint { display: none !important; }
+[data-platform="android"] body { -webkit-tap-highlight-color: transparent; }
