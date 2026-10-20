@@ -499,20 +499,41 @@ fn arg(name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1).cloned())
 }
 
+/// Where libVLC lives on each system. Windows and macOS carry VLC next to the app; Linux uses the
+/// system's libVLC (the package depends on it) unless a folder is given.
+fn vlc_paths(dir: Option<&PathBuf>) -> (PathBuf, PathBuf) {
+    if cfg!(target_os = "windows") {
+        let d = dir.cloned().unwrap_or_else(|| std::env::current_exe().unwrap().parent().unwrap().join("vlc"));
+        (d.join("libvlccore.dll"), d.join("libvlc.dll"))
+    } else if cfg!(target_os = "macos") {
+        // The lib and plugins folders from VLC.app/Contents/MacOS.
+        let d = dir.cloned().unwrap_or_else(|| PathBuf::from("/Applications/VLC.app/Contents/MacOS"));
+        std::env::set_var("VLC_PLUGIN_PATH", d.join("plugins"));
+        (d.join("lib").join("libvlccore.dylib"), d.join("lib").join("libvlc.dylib"))
+    } else {
+        match dir {
+            Some(d) if d.join("libvlc.so.5").exists() => {
+                std::env::set_var("VLC_PLUGIN_PATH", d.join("plugins"));
+                (d.join("libvlccore.so.9"), d.join("libvlc.so.5"))
+            }
+            _ => (PathBuf::from("libvlccore.so.9"), PathBuf::from("libvlc.so.5")),
+        }
+    }
+}
+
 fn main() {
-    let vlc_dir = arg("--vlc").map(PathBuf::from).unwrap_or_else(|| {
-        std::env::current_exe().unwrap().parent().unwrap().join("vlc")
-    });
+    let vlc_dir = arg("--vlc").filter(|s| !s.is_empty()).map(PathBuf::from);
     let token = arg("--token").unwrap_or_default();
 
+    let (core_path, lib_path) = vlc_paths(vlc_dir.as_ref());
     let (core, lib) = unsafe {
-        // libvlccore first so libvlc.dll resolves it from the VLC folder, not the system path.
-        let core = Library::new(vlc_dir.join("libvlccore.dll"));
-        let lib = Library::new(vlc_dir.join("libvlc.dll"));
+        // libvlccore first so libvlc resolves it from the same folder, not some other copy on the system.
+        let core = Library::new(&core_path);
+        let lib = Library::new(&lib_path);
         match (core, lib) {
             (Ok(c), Ok(l)) => (c, l),
             (c, l) => {
-                eprintln!("could not load libVLC from {}: {:?} {:?}", vlc_dir.display(), c.err(), l.err());
+                eprintln!("could not load libVLC ({}): {:?} {:?}", lib_path.display(), c.err(), l.err());
                 std::process::exit(2);
             }
         }

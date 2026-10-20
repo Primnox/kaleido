@@ -242,3 +242,7 @@ kbd { font: 12px var(--k-mono); padding: 2px 7px; border-radius: 6px; background
 .k-say-row kbd { flex: none; min-width: 58px; text-align: right; }
 .k-say-row .k-palette-label { white-space: normal; line-height: 1.4; }
 .k-say-row mark { background: var(--k-accent); color: var(--k-accent-fg); border-radius: 3px; padding: 0 2px; }
+
+/* macOS draws its own traffic light buttons at the top left */
+[data-platform="darwin"] .k-winbtns { display: none !important; }
+[data-platform="darwin"] .nm-top, [data-platform="darwin"] .nm-home-top, [data-platform="darwin"] .pr-top, [data-platform="darwin"] .rm-top { padding-left: 84px; }

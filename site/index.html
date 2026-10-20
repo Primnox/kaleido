@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en" data-theme="tungsten">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaleido, a video player with VLC's engine</title>
+<meta name="description" content="Kaleido plays anything VLC plays, remembers where you stopped, and warms the room when you pause. Free and open source for Windows.">
+<meta property="og:title" content="Kaleido">
+<meta property="og:description" content="A video player with VLC's engine and a quiet interface. Pausing warms the room.">
+<meta property="og:image" content="https://primnox.github.io/kaleido/media/og.png">
+<link rel="icon" href="assets/icon-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="#top"><img src="assets/logo.svg" alt=""> Kaleido</a>
+  <nav>
+    <a href="#pause">The pause</a>
+    <a href="#only">Only in Kaleido</a>
+    <a href="#themes">Themes</a>
+    <a href="#download" class="nav-cta">Download</a>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="hero-art" id="doodles"></div>
+    <div class="hero-text">
+      <div class="wordrow"><img class="mark" src="assets/logo.svg" alt="Kaleido logo"><h1>Kaleido</h1></div>
+      <svg class="underline" viewBox="0 0 300 24" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M4 15 C 60 4, 120 22, 180 11 S 270 8, 296 14"/></svg>
+      <p class="tag">Plays anything VLC plays.<br>Remembers where you stopped.<br>Warms the room when you pause.</p>
+      <div class="ctas">
+        <a class="btn primary" data-dl="setup" href="https://github.com/Primnox/kaleido/releases/latest">Download for Windows</a>
+        <a class="btn" href="https://github.com/Primnox/kaleido">Source on GitHub</a>
+      </div>
+      <p class="fine">Free and open source. Windows 10 and 11, 64-bit. <a data-dl="portable" href="https://github.com/Primnox/kaleido/releases/latest">Portable version</a></p>
+    </div>
+  </section>
+
+  <section class="window-shot reveal">
+    <div class="window"><div class="window-bar"><i></i><i></i><i></i></div><img src="media/player.jpg" alt="Kaleido playing a film, with the seek bar, chapters and quality badges"></div>
+    <p class="caption">Ordinary controls that disappear while you watch. VLC underneath, so MKV, AVI, HEVC, AC3, DTS and the rest just play.</p>
+  </section>
+
+  <section class="pause reveal" id="pause">
+    <div class="pause-copy">
+      <h2>Pause, and the room warms up.</h2>
+      <p>Every other player freezes a frame and puts a play button on top of it. Kaleido holds the picture like a photograph, crops the black bars away, and lays the last few moments you saw beside it. Click one to go back there.</p>
+    </div>
+    <div class="pause-shot"><img src="media/held.jpg" alt="The pause screen: the picture held like a photo in a warm room, recent moments beside it"></div>
+  </section>
+
+  <section class="only reveal" id="only">
+    <h2>Things only Kaleido does</h2>
+    <p class="lede">VLC, mpv, PotPlayer, IINA and MPC don't do these.</p>
+    <div class="feature-list">
+      <article class="feature">
+        <svg class="fx fx-say" viewBox="0 0 120 90" aria-hidden="true"><path class="ln" d="M14 18 h70 a8 8 0 0 1 8 8 v26 a8 8 0 0 1 -8 8 h-40 l-14 12 v-12 h-16 a8 8 0 0 1 -8 -8 v-26 a8 8 0 0 1 8 -8 z"/><path class="ln spin-back" d="M64 40 a12 12 0 1 1 -4 -9"/><path class="ln" d="M58 26 l3 6 l-6 2"/><path class="ln dim" d="M24 34 h22 M24 44 h16"/></svg>
+        <div><h3>What did they say?</h3><p>Press W. It jumps back ten seconds with subtitles on, then switches them off again once it catches up.</p></div>
+      </article>
+      <article class="feature">
+        <svg class="fx fx-search" viewBox="0 0 120 90" aria-hidden="true"><path class="ln dim type t1" d="M14 22 h56"/><path class="ln dim type t2" d="M14 36 h44"/><path class="ln accent type t3" d="M14 50 h52"/><path class="ln dim type t4" d="M14 64 h36"/><g class="glass"><circle class="ln" cx="80" cy="50" r="16"/><path class="ln" d="M92 62 l14 14"/></g></svg>
+        <div><h3>Search what they say</h3><p>Press / and type a word. Every line where somebody says it, with a time beside it. Click to go there.</p></div>
+      </article>
+      <article class="feature">
+        <svg class="fx fx-lang" viewBox="0 0 120 90" aria-hidden="true"><rect class="ln" x="12" y="20" width="30" height="22" rx="3"/><rect class="ln" x="46" y="20" width="30" height="22" rx="3"/><rect class="ln" x="80" y="20" width="30" height="22" rx="3"/><text class="tag-txt t-a" x="27" y="62">JP</text><text class="tag-txt t-b" x="61" y="62">JP</text><text class="tag-txt t-c" x="95" y="62">JP</text><path class="ln dim" d="M18 72 h86"/></svg>
+        <div><h3>Your languages, every episode</h3><p>Pick Japanese audio and English subtitles once. Every file in that folder starts the same way.</p></div>
+      </article>
+      <article class="feature">
+        <svg class="fx fx-silence" viewBox="0 0 120 90" aria-hidden="true"><path class="ln" d="M8 46 l4 -10 l4 18 l4 -24 l4 22 l4 -12 l4 6 h34 l4 -14 l4 22 l4 -26 l4 20 l4 -10 l4 6"/><path class="ln dim dash" d="M44 46 h32"/><circle class="hopper" cx="40" cy="46" r="4"/></svg>
+        <div><h3>Skip silence</h3><p>Lectures and recordings lose their dead air. Long quiet stretches are jumped over as they come.</p></div>
+      </article>
+      <article class="feature">
+        <svg class="fx fx-clip" viewBox="0 0 120 90" aria-hidden="true"><rect class="ln" x="8" y="30" width="104" height="30" rx="3"/><path class="ln dim" d="M8 37 h104 M8 53 h104"/><path class="ln accent" d="M44 30 v30 M76 30 v30"/><g class="scissors"><circle class="ln" cx="60" cy="14" r="5"/><path class="ln blade-a" d="M60 19 l-6 16"/><path class="ln blade-b" d="M60 19 l6 16"/></g></svg>
+        <div><h3>Save a clip</h3><p>Loop a part with X, press C. It becomes a frame accurate mp4. No loop? It keeps the last 30 seconds.</p></div>
+      </article>
+      <article class="feature">
+        <svg class="fx fx-lock" viewBox="0 0 120 90" aria-hidden="true"><path class="ln shackle" d="M44 40 v-10 a16 16 0 0 1 32 0 v10"/><rect class="ln" x="36" y="40" width="48" height="36" rx="6"/><path class="ln accent" d="M54 50 v16 M66 50 v16"/></svg>
+        <div><h3>Pauses when you lock the PC</h3><p>Walk away and the film waits. When you come back, it tells you where you are.</p></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="everyday reveal">
+    <h2>And everything a player should do</h2>
+    <ul class="everything">
+      <li>Plays everything VLC plays</li><li>Volume up to 200%</li><li>Skip intro</li><li>Up next countdown</li><li>Seek previews and chapter marks</li>
+      <li>Bookmarks</li><li>Mini player</li><li>Double click the sides to jump 10s</li><li>Resume where you stopped</li><li>Queue the rest of the folder</li>
+      <li>Night mode for loud films</li><li>VLC's equalizer presets</li><li>Subtitle and audio sync</li><li>A to B loop</li><li>Snapshots</li>
+      <li>Quality badges</li><li>Clean titles from messy file names</li><li>Picture in picture</li><li>Keyboard first, VLC style</li>
+    </ul>
+  </section>
+
+  <section class="themes reveal" id="themes">
+    <h2>Six themes</h2>
+    <p class="lede">Pick one. This page changes with it, just like the app.</p>
+    <div class="swatches" role="radiogroup" aria-label="Theme"></div>
+    <div class="window theme-shot"><div class="window-bar"><i></i><i></i><i></i></div><img id="themeShot" src="media/home-tungsten.jpg" alt="Kaleido home page in the chosen theme"></div>
+  </section>
+
+  <section class="download reveal" id="download">
+    <img class="dl-mark" src="assets/logo.svg" alt="">
+    <h2>Get Kaleido</h2>
+    <p class="lede">Version <span class="ver">0.1.0</span> for Windows 10 and 11, 64-bit.</p>
+    <div class="ctas center">
+      <a class="btn primary big" data-dl="setup" href="https://github.com/Primnox/kaleido/releases/latest">Installer<small>Start menu, file associations, uninstaller</small></a>
+      <a class="btn big" data-dl="portable" href="https://github.com/Primnox/kaleido/releases/latest">Portable<small>One file, runs from anywhere</small></a>
+    </div>
+    <p class="fine">Both are about 180 MB because VLC and FFmpeg come inside, so nothing else needs installing. The installer is not code signed yet, so Windows may show a SmartScreen notice: choose More info, then Run anyway.</p>
+  </section>
+</main>
+
+<footer>
+  <span><img src="assets/logo.svg" alt=""> Kaleido by <a href="https://github.com/Primnox">Primnox</a></span>
+  <span>Built on libVLC 3.0.24 by VideoLAN and FFmpeg. MIT licensed.</span>
+</footer>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

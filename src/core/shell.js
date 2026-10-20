@@ -455,6 +455,7 @@ async function setSkin(id, { live = false } = {}) {
 }
 
 // ---------- boot ----------
+document.documentElement.dataset.platform = window.host.platform;
 (async () => {
   await engine.restore();
   engine.connect();

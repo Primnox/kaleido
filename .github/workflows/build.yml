@@ -1,0 +1,85 @@
+name: Build installers
+
+# Builds Kaleido on real Windows, macOS and Linux machines.
+# Run it by hand to get the installers as workflow artifacts; pushing a v* tag also makes a release.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: windows }
+          - { os: macos-14, name: macos }
+          - { os: ubuntu-22.04, name: linux }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.name == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - run: npm ci
+
+      - name: Windows installer and portable
+        if: matrix.name == 'windows'
+        shell: bash
+        run: |
+          node scripts/fetch-vlc.js
+          cargo build --release --manifest-path engine/Cargo.toml
+          node scripts/stage.js
+          npx electron-builder --win nsis portable --publish never
+
+      - name: macOS, Apple Silicon and Intel
+        if: matrix.name == 'macos'
+        run: |
+          for arch in arm64 x64; do
+            if [ "$arch" = arm64 ]; then triple=aarch64-apple-darwin; else triple=x86_64-apple-darwin; fi
+            cargo build --release --manifest-path engine/Cargo.toml --target "$triple"
+            KALEIDO_ARCH=$arch node scripts/fetch-vlc.js
+            npm_config_arch=$arch npm rebuild ffmpeg-static
+            KALEIDO_ARCH=$arch KALEIDO_ENGINE_BIN="engine/target/$triple/release/kaleido-engine" node scripts/stage.js
+            npx electron-builder --mac dmg zip --$arch --publish never
+          done
+
+      - name: Linux AppImage and deb
+        if: matrix.name == 'linux'
+        run: |
+          cargo build --release --manifest-path engine/Cargo.toml
+          node scripts/stage.js
+          npx electron-builder --linux AppImage deb --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaleido-${{ matrix.name }}
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          generate_release_notes: true

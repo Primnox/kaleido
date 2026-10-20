@@ -8,9 +8,22 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 
 const ROOT = __dirname;
-const ENGINE = process.env.KALEIDO_ENGINE || path.join(ROOT, 'engine', 'target', 'release', 'kaleido-engine.exe');
-const VLC_DIR = process.env.KALEIDO_VLC || path.join(ROOT, 'vendor', 'vlc');
-const FFMPEG = process.env.KALEIDO_FFMPEG || 'ffmpeg';
+// Installed builds carry the engine, VLC and ffmpeg in resources/; a source checkout uses its own folders.
+const RES = app.isPackaged ? process.resourcesPath : null;
+const IS_WIN = process.platform === 'win32';
+const IS_MAC = process.platform === 'darwin';
+const EXE = IS_WIN ? '.exe' : '';
+const ENGINE = process.env.KALEIDO_ENGINE || (RES ? path.join(RES, 'engine', `kaleido-engine${EXE}`) : path.join(ROOT, 'engine', 'target', 'release', `kaleido-engine${EXE}`));
+// Windows and macOS carry VLC with the app; Linux uses the system's libVLC (the package depends on it).
+const VLC_DIR = process.env.KALEIDO_VLC || (() => {
+  const dir = RES ? path.join(RES, 'vlc') : path.join(ROOT, 'vendor', 'vlc');
+  return IS_WIN || IS_MAC || fs.existsSync(dir) ? dir : '';
+})();
+const VLC_LIB = IS_WIN ? 'libvlc.dll' : IS_MAC ? path.join('lib', 'libvlc.dylib') : 'libvlc.so.5';
+const FFMPEG = process.env.KALEIDO_FFMPEG || (() => {
+  if (RES) return path.join(RES, 'ffmpeg', `ffmpeg${EXE}`);
+  try { return require('ffmpeg-static'); } catch { return 'ffmpeg'; }
+})();
 
 const VIDEO_EXT = 'mp4 m4v mkv webm avi mov wmv flv mpg mpeg ts m2ts mts 3gp 3g2 ogv vob divx f4v rm rmvb asf mxf'.split(' ');
 const AUDIO_EXT = 'mp3 m4a aac flac wav ogg oga opus wma alac aiff aif ape mka wv'.split(' ');
@@ -49,8 +62,11 @@ let engineReady = null;
 function startEngine() {
   engineReady = new Promise((resolve, reject) => {
     if (!fs.existsSync(ENGINE)) return reject(new Error(`Engine not built: ${ENGINE}. Run "npm run build:engine".`));
-    if (!fs.existsSync(path.join(VLC_DIR, 'libvlc.dll'))) return reject(new Error(`libVLC not found in ${VLC_DIR}. Run "npm run fetch:vlc".`));
-    const proc = spawn(ENGINE, ['--vlc', VLC_DIR, '--token', engineToken], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    if (VLC_DIR && (IS_WIN || IS_MAC) && !fs.existsSync(path.join(VLC_DIR, VLC_LIB))) return reject(new Error(`libVLC not found in ${VLC_DIR}. Run "npm run fetch:vlc".`));
+    const args = ['--token', engineToken, ...(VLC_DIR ? ['--vlc', VLC_DIR] : [])];
+    const proc = spawn(ENGINE, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let errText = '';
+    proc.stderr.on('data', d => { errText += d; });
     engineProc = proc;
     let buf = '';
     proc.stdout.on('data', d => {
@@ -64,6 +80,11 @@ function startEngine() {
       if (engineProc !== proc) return;
       engineProc = null;
       enginePort = 0;
+      if (code === 2 && !enginePort && /libVLC/i.test(errText)) {
+        // libVLC itself is missing: say how to get it rather than restarting forever.
+        reject(new Error(process.platform === 'linux' ? 'Kaleido needs VLC. Install it with sudo apt install vlc, or the vlc package for your distribution.' : 'VLC could not be loaded from the app folder. Reinstalling Kaleido should fix it.'));
+        return;
+      }
       reject(new Error(`engine exited (${code})`));
       // A crash inside a VLC module should never take the app down: restart and let the UI reconnect.
       if (!quitting) setTimeout(() => {
@@ -136,7 +157,23 @@ async function poster(file, t) {
 }
 
 // ---------- durations and colour barcodes for the library, cached per file version ----------
-const FFPROBE = process.env.KALEIDO_FFPROBE || 'ffprobe';
+// Duration and stream list read from ffmpeg's own banner, so no ffprobe has to ship.
+function ffInfo(file) {
+  return new Promise(resolve => {
+    const p = spawn(FFMPEG, ['-hide_banner', '-i', file], { windowsHide: true });
+    let err = '';
+    const timer = setTimeout(() => p.kill('SIGKILL'), 15000);
+    p.stderr.on('data', d => { err += d; });
+    p.on('error', () => { clearTimeout(timer); resolve(null); });
+    p.on('close', () => {
+      clearTimeout(timer);
+      const d = /Duration: (\d+):(\d+):([\d.]+)/.exec(err);
+      const subs = [...err.matchAll(/Stream #0:(\d+)(?:\[[^\]]*\])?(?:\((\w+)\))?: Subtitle: (\w+)/g)]
+        .map(m => ({ index: Number(m[1]), language: m[2] || '', codec: m[3] }));
+      resolve({ duration: d ? Number(d[1]) * 3600 + Number(d[2]) * 60 + Number(d[3]) : 0, subs });
+    });
+  });
+}
 let mediaCache = null;
 let mediaCacheTimer = null;
 const mediaCachePath = () => path.join(app.getPath('userData'), 'media-cache.json');
@@ -159,8 +196,8 @@ async function duration(file) {
   if (!key) return 0;
   const c = cacheEntry(key);
   if (c.duration != null) return c.duration;
-  const out = await queued(() => run(FFPROBE, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], { timeout: 15000 })).catch(() => '');
-  c.duration = parseFloat(String(out)) || 0;
+  const info = await queued(() => ffInfo(file)).catch(() => null);
+  c.duration = (info && info.duration) || 0;
   saveMediaCache();
   return c.duration;
 }
@@ -292,13 +329,13 @@ async function dialogue(file) {
   }
   // Otherwise the first text subtitle track inside the file, English first.
   if (!result) {
-    const probe = JSON.parse(String(await run(FFPROBE, ['-v', 'error', '-select_streams', 's', '-show_entries', 'stream=index,codec_name:stream_tags=language,title', '-of', 'json', file]).catch(() => '{}')) || '{}');
-    const streams = (probe.streams || []).filter(s => TEXT_SUBS.includes(s.codec_name));
-    streams.sort((a, b) => Number(/^en/i.test((b.tags || {}).language || '')) - Number(/^en/i.test((a.tags || {}).language || '')));
+    const info = await ffInfo(file);
+    const streams = ((info && info.subs) || []).filter(s => TEXT_SUBS.includes(s.codec));
+    streams.sort((a, b) => Number(/^en/i.test(b.language)) - Number(/^en/i.test(a.language)));
     for (const s of streams.slice(0, 2)) {
       const raw = String(await run(FFMPEG, ['-v', 'error', '-i', file, '-map', `0:${s.index}`, '-f', 'srt', 'pipe:1'], { timeout: 180000 }).catch(() => ''));
       const cues = parseCues(raw);
-      if (cues.length) { result = { source: ((s.tags || {}).title || (s.tags || {}).language || 'subtitles'), cues }; break; }
+      if (cues.length) { result = { source: s.language || 'subtitles', cues }; break; }
     }
   }
   dialogueCache.set(key, result);
@@ -405,7 +442,7 @@ ipcMain.handle('shot:path', async (e, name) => {
   return path.join(dir, `${safe} ${stamp}.png`);
 });
 ipcMain.handle('shell:showItem', (e, p) => shell.showItemInFolder(p));
-ipcMain.handle('app:initialFiles', () => argvFiles(process.argv));
+ipcMain.handle('app:initialFiles', () => [...argvFiles(process.argv), ...pendingOpen.splice(0)]);
 ipcMain.handle('win:minimize', () => win.minimize());
 ipcMain.handle('win:toggleMaximize', () => (win.isMaximized() ? win.unmaximize() : win.maximize()));
 ipcMain.handle('win:close', () => win.close());
@@ -445,8 +482,10 @@ ipcMain.handle('win:state', () => ({ fullscreen: win.isFullScreen(), maximized: 
 function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 760, minWidth: 420, minHeight: 260,
-    frame: false, backgroundColor: '#000000', show: false, title: 'Kaleido',
-    icon: path.join(ROOT, 'assets', 'icon.ico'),
+    backgroundColor: '#000000', show: false, title: 'Kaleido',
+    // macOS keeps its own traffic light buttons; Windows and Linux get Kaleido's drawn ones.
+    ...(IS_MAC ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 16, y: 14 } } : { frame: false }),
+    icon: path.join(ROOT, 'assets', IS_WIN ? 'icon.ico' : 'icon-256.png'),
     webPreferences: { preload: path.join(ROOT, 'preload.js'), contextIsolation: true, sandbox: true },
   });
   win.loadFile(path.join(ROOT, 'src', 'index.html'), process.env.KALEIDO_SKIN ? { query: { skin: process.env.KALEIDO_SKIN } } : undefined);
@@ -493,6 +532,14 @@ function attachDebug() {
   }
 }
 
+// Finder hands files over with open-file (before or after launch) instead of on the command line.
+const pendingOpen = [];
+app.on('open-file', (e, file) => {
+  e.preventDefault();
+  if (win && win.webContents && !win.webContents.isLoading()) win.webContents.send('open-files', [file]);
+  else pendingOpen.push(file);
+});
+
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', (e, argv) => {
@@ -502,9 +549,11 @@ else {
     const files = argvFiles(argv);
     if (files.length) win.webContents.send('open-files', files);
   });
-  app.setAppUserModelId('app.kaleido.player');
+  if (IS_WIN) app.setAppUserModelId('app.kaleido.player');
   app.whenReady().then(() => {
-    Menu.setApplicationMenu(null);
+    // No menu on Windows and Linux, so hidden accelerators never steal the player's keys.
+    // macOS keeps the app and edit menus that Cmd+Q, Cmd+H and copy and paste rely on.
+    Menu.setApplicationMenu(IS_MAC ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]) : null);
     // Locking the PC or putting it to sleep pauses the film; the UI decides what to say when you return.
     const system = ev => () => win && win.webContents.send('system', ev);
     powerMonitor.on('lock-screen', system('away'));

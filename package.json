@@ -2,17 +2,179 @@
   "name": "kaleido",
   "productName": "Kaleido",
   "version": "0.1.0",
-  "description": "A plays-everything video player with swappable skins",
+  "description": "A video player with VLC's engine and a quiet interface",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build:engine": "cargo build --release --manifest-path engine/Cargo.toml",
     "fetch:vlc": "node scripts/fetch-vlc.js",
     "setup": "npm run fetch:vlc && npm run build:engine",
-    "icons": "electron scripts/make-icons.js"
+    "icons": "electron scripts/make-icons.js",
+    "stage": "node scripts/stage.js",
+    "dist": "node scripts/stage.js && electron-builder --win nsis portable"
   },
   "license": "MIT",
   "devDependencies": {
-    "electron": "^44.9.0"
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3",
+    "ffmpeg-static": "^5.3.0"
+  },
+  "author": {
+    "name": "Primnox"
+  },
+  "homepage": "https://primnox.github.io/kaleido/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Primnox/kaleido.git"
+  },
+  "build": {
+    "appId": "app.kaleido.player",
+    "productName": "Kaleido",
+    "copyright": "Primnox",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "staging/engine",
+        "to": "engine"
+      },
+      {
+        "from": "staging/ffmpeg",
+        "to": "ffmpeg"
+      },
+      {
+        "from": "staging/licenses",
+        "to": "licenses"
+      }
+    ],
+    "asar": true,
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "executableName": "Kaleido",
+      "extraResources": [
+        {
+          "from": "staging/vlc",
+          "to": "vlc"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Kaleido",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "artifactName": "Kaleido-Setup-${version}.exe",
+      "license": "LICENSE"
+    },
+    "portable": {
+      "artifactName": "Kaleido-${version}-Portable.exe"
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "mp4",
+          "m4v",
+          "mkv",
+          "webm",
+          "avi",
+          "mov",
+          "wmv",
+          "flv",
+          "mpg",
+          "mpeg",
+          "ts",
+          "m2ts",
+          "mts",
+          "3gp",
+          "ogv",
+          "vob"
+        ],
+        "name": "Kaleido video",
+        "description": "Video file",
+        "role": "Viewer"
+      },
+      {
+        "ext": [
+          "mp3",
+          "m4a",
+          "aac",
+          "flac",
+          "wav",
+          "ogg",
+          "opus",
+          "wma"
+        ],
+        "name": "Kaleido audio",
+        "description": "Audio file",
+        "role": "Viewer"
+      }
+    ],
+    "afterPack": "scripts/after-pack.js",
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "assets/icon-512.png",
+      "category": "public.app-category.video",
+      "darkModeSupport": true,
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "extraResources": [
+        {
+          "from": "staging/vlc",
+          "to": "vlc"
+        }
+      ],
+      "artifactName": "Kaleido-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "artifactName": "Kaleido-${version}-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icon-512.png",
+      "category": "AudioVideo",
+      "synopsis": "A video player with VLC's engine and a quiet interface",
+      "maintainer": "Primnox <Primnox@users.noreply.github.com>",
+      "artifactName": "Kaleido-${version}-linux-${arch}.${ext}",
+      "executableName": "kaleido"
+    },
+    "deb": {
+      "depends": [
+        "libvlc5",
+        "vlc-plugin-base",
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0"
+      ]
+    }
   }
 }

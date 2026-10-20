@@ -3,3 +3,5 @@ out/
 *.log
 vendor/
 engine/target/
+staging/
+dist/

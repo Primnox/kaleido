@@ -36,7 +36,19 @@ The logo is a lens iris that is also a kaleidoscope: six blades, one for each co
 
 ffmpeg is optional and only used for frame previews, the colour line at the end, and posters.
 
-## Run it
+## Download
+
+Windows 10 and 11, 64-bit: get the installer or the portable version from the [releases page](https://github.com/Primnox/kaleido/releases/latest), or visit [primnox.github.io/kaleido](https://primnox.github.io/kaleido/). Both carry VLC and FFmpeg inside, so nothing else needs installing. The installer is not code signed yet, so Windows SmartScreen may ask you to choose More info, then Run anyway.
+
+## Build the installers
+
+```
+npm run dist
+```
+
+`scripts/stage.js` gathers the engine, a trimmed VLC (with a fresh plugin cache) and FFmpeg into `staging/`, then electron-builder writes `dist/Kaleido-Setup-<version>.exe` and `dist/Kaleido-<version>-Portable.exe`. The website lives in `site/`; `node scripts/build-site.js` refreshes the logo and doodles it shares with the app.
+
+## Run it from source
 
 ```
 npm install
