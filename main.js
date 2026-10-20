@@ -23,6 +23,9 @@ const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'bas
 let win;
 let quitting = false;
 
+// Dev: KALEIDO_PROFILE=<dir> runs with a separate profile (recent files, settings, caches).
+if (process.env.KALEIDO_PROFILE) app.setPath('userData', process.env.KALEIDO_PROFILE);
+
 // ---------- persistence ----------
 const storeFile = () => path.join(app.getPath('userData'), 'kaleido.json');
 let store = {};
