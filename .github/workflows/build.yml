@@ -47,7 +47,9 @@ jobs:
             if [ "$arch" = arm64 ]; then triple=aarch64-apple-darwin; else triple=x86_64-apple-darwin; fi
             cargo build --release --manifest-path engine/Cargo.toml --target "$triple"
             KALEIDO_ARCH=$arch node scripts/fetch-vlc.js
-            npm_config_arch=$arch npm rebuild ffmpeg-static
+            # ffmpeg-static skips the download when a binary is already there, so clear it first.
+            rm -f node_modules/ffmpeg-static/ffmpeg
+            npm_config_arch=$arch node node_modules/ffmpeg-static/install.js
             KALEIDO_ARCH=$arch KALEIDO_ENGINE_BIN="engine/target/$triple/release/kaleido-engine" node scripts/stage.js
             npx electron-builder --mac dmg zip --$arch --publish never
           done
