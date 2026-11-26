@@ -1,6 +1,6 @@
 import { DOODLES } from './js/doodles.js';
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const RELEASE = `https://github.com/Primnox/kaleido/releases/download/v${VERSION}`;
 const THEMES = [
   ['tungsten', 'Tungsten', '#120c08', '#f0c98a'],

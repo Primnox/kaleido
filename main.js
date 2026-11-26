@@ -7,6 +7,12 @@ const fsp = fs.promises;
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
+const tmdb = require('./streaming/tmdb');
+const providers = require('./streaming/providers');
+const iptv = require('./streaming/iptv');
+const radio = require('./streaming/radio');
+const guest = require('./streaming/guest');
+
 const ROOT = __dirname;
 // Installed builds carry the engine, VLC and ffmpeg in resources/; a source checkout uses its own folders.
 const RES = app.isPackaged ? process.resourcesPath : null;
@@ -443,6 +449,38 @@ ipcMain.handle('shot:path', async (e, name) => {
 });
 ipcMain.handle('shell:showItem', (e, p) => shell.showItemInFolder(p));
 ipcMain.handle('app:initialFiles', () => [...argvFiles(process.argv), ...pendingOpen.splice(0)]);
+
+// ---------- streaming IPC ----------
+ipcMain.handle('tmdb:setKey', (e, key) => { tmdb.setKey(key); });
+ipcMain.handle('tmdb:getKey', () => tmdb.getKey());
+ipcMain.handle('tmdb:trending', (e, type, window, page) => tmdb.trending(type, window, page));
+ipcMain.handle('tmdb:popular', (e, type, page) => tmdb.popular(type, page));
+ipcMain.handle('tmdb:topRated', (e, type, page) => tmdb.topRated(type, page));
+ipcMain.handle('tmdb:nowPlaying', (e, page) => tmdb.nowPlaying(page));
+ipcMain.handle('tmdb:airingToday', (e, page) => tmdb.airingToday(page));
+ipcMain.handle('tmdb:search', (e, query, page, type) => tmdb.search(query, page, type));
+ipcMain.handle('tmdb:movieDetails', (e, id) => tmdb.movieDetails(id));
+ipcMain.handle('tmdb:tvDetails', (e, id) => tmdb.tvDetails(id));
+ipcMain.handle('tmdb:seasonDetails', (e, tvId, season) => tmdb.seasonDetails(tvId, season));
+ipcMain.handle('tmdb:genres', (e, type) => tmdb.genres(type));
+ipcMain.handle('tmdb:discover', (e, type, params) => tmdb.discover(type, params));
+ipcMain.handle('providers:list', () => providers.list());
+ipcMain.handle('providers:getEmbed', (e, providerId, type, tmdbId, season, episode) => providers.getEmbed(providerId, type, tmdbId, season, episode));
+ipcMain.handle('providers:getAll', (e, type, tmdbId, season, episode) => providers.getAll(type, tmdbId, season, episode));
+ipcMain.handle('providers:check', (e, type, tmdbId, season, episode) => providers.check(type, tmdbId, season, episode));
+ipcMain.handle('stream:sample', (e, id) => guest.sample(e.sender, id).catch(() => null));
+ipcMain.handle('iptv:categories', () => iptv.listCategories());
+ipcMain.handle('iptv:countries', () => iptv.listCountries());
+ipcMain.handle('iptv:byCategory', (e, cat) => iptv.categoryChannels(cat));
+ipcMain.handle('iptv:byCountry', (e, code) => iptv.countryChannels(code));
+ipcMain.handle('iptv:search', (e, query, limit) => iptv.search(query, limit));
+ipcMain.handle('radio:top', (e, limit, offset) => radio.topStations(limit, offset));
+ipcMain.handle('radio:popular', (e, limit, offset) => radio.popularStations(limit, offset));
+ipcMain.handle('radio:search', (e, query, opts) => radio.searchStations(query, opts));
+ipcMain.handle('radio:byCountry', (e, code, limit, offset) => radio.stationsByCountry(code, limit, offset));
+ipcMain.handle('radio:byTag', (e, tag, limit, offset) => radio.stationsByTag(tag, limit, offset));
+ipcMain.handle('radio:tags', (e, limit) => radio.topTags(limit));
+ipcMain.handle('radio:countries', (e, limit) => radio.topCountries(limit));
 ipcMain.handle('win:minimize', () => win.minimize());
 ipcMain.handle('win:toggleMaximize', () => (win.isMaximized() ? win.unmaximize() : win.maximize()));
 ipcMain.handle('win:close', () => win.close());
@@ -486,8 +524,9 @@ function createWindow() {
     // macOS keeps its own traffic light buttons; Windows and Linux get Kaleido's drawn ones.
     ...(IS_MAC ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 16, y: 14 } } : { frame: false }),
     icon: path.join(ROOT, 'assets', IS_WIN ? 'icon.ico' : 'icon-256.png'),
-    webPreferences: { preload: path.join(ROOT, 'preload.js'), contextIsolation: true, sandbox: true },
+    webPreferences: { preload: path.join(ROOT, 'preload.js'), contextIsolation: true, sandbox: true, webviewTag: true },
   });
+  guest.setup(win);
   win.loadFile(path.join(ROOT, 'src', 'index.html'), process.env.KALEIDO_SKIN ? { query: { skin: process.env.KALEIDO_SKIN } } : undefined);
   win.once('ready-to-show', () => win.show());
   if (process.env.KALEIDO_DEBUG) attachDebug();

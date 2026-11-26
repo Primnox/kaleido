@@ -49,4 +49,47 @@ contextBridge.exposeInMainWorld('host', {
   onEngineRestarted: listen('engine-restarted'),
   onSystem: listen('system'),
   debug: { capture: name => invoke('debug:capture', name), quit: () => invoke('debug:quit'), system: ev => invoke('debug:system', ev) },
+
+  // Streaming
+  streaming: {
+    onEscape: listen('stream:escape'),
+    sample: webContentsId => invoke('stream:sample', webContentsId),
+    tmdb: {
+      setKey: key => invoke('tmdb:setKey', key),
+      getKey: () => invoke('tmdb:getKey'),
+      trending: (type, window, page) => invoke('tmdb:trending', type, window, page),
+      popular: (type, page) => invoke('tmdb:popular', type, page),
+      topRated: (type, page) => invoke('tmdb:topRated', type, page),
+      nowPlaying: page => invoke('tmdb:nowPlaying', page),
+      airingToday: page => invoke('tmdb:airingToday', page),
+      search: (query, page, type) => invoke('tmdb:search', query, page, type),
+      movieDetails: id => invoke('tmdb:movieDetails', id),
+      tvDetails: id => invoke('tmdb:tvDetails', id),
+      seasonDetails: (tvId, season) => invoke('tmdb:seasonDetails', tvId, season),
+      genres: type => invoke('tmdb:genres', type),
+      discover: (type, params) => invoke('tmdb:discover', type, params),
+    },
+    providers: {
+      list: () => invoke('providers:list'),
+      getEmbed: (providerId, type, tmdbId, season, episode) => invoke('providers:getEmbed', providerId, type, tmdbId, season, episode),
+      getAll: (type, tmdbId, season, episode) => invoke('providers:getAll', type, tmdbId, season, episode),
+      check: (type, tmdbId, season, episode) => invoke('providers:check', type, tmdbId, season, episode),
+    },
+    iptv: {
+      categories: () => invoke('iptv:categories'),
+      countries: () => invoke('iptv:countries'),
+      byCategory: cat => invoke('iptv:byCategory', cat),
+      byCountry: code => invoke('iptv:byCountry', code),
+      search: (query, limit) => invoke('iptv:search', query, limit),
+    },
+    radio: {
+      top: (limit, offset) => invoke('radio:top', limit, offset),
+      popular: (limit, offset) => invoke('radio:popular', limit, offset),
+      search: (query, opts) => invoke('radio:search', query, opts),
+      byCountry: (code, limit, offset) => invoke('radio:byCountry', code, limit, offset),
+      byTag: (tag, limit, offset) => invoke('radio:byTag', tag, limit, offset),
+      tags: limit => invoke('radio:tags', limit),
+      countries: limit => invoke('radio:countries', limit),
+    },
+  },
 });

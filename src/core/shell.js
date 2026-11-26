@@ -3,6 +3,7 @@
 import { createEngine, fmt } from './engine.js';
 import * as ui from './ui.js';
 import { SKINS } from '../skins/index.js';
+import { mountBrowse } from './browse.js';
 
 const { h, icon } = ui;
 const engine = createEngine();
@@ -167,6 +168,7 @@ function commands() {
     ['Show media info', 'Ctrl+I', () => shell.command('info')],
     e.can('keyboard') && ['Keyboard shortcuts', '?', () => shell.showShortcuts()],
     SKINS.length > 1 && ['Template gallery', 'Ctrl+,', () => shell.openSkinPicker()],
+    canStream() && ['Streaming hub', 'Ctrl+Shift+S', () => shell.toggleStreaming()],
     ['Show library', 'Ctrl+B', () => e.showLibrary(e.state.view !== 'library')],
     ['Add a folder to the library', '', () => e.addLibraryFolder()],
     [s.settings.autoQueue ? 'Stop queueing the rest of the folder' : 'Queue the rest of the folder when opening a file', '', () => e.saveSettings({ autoQueue: !s.settings.autoQueue })],
@@ -200,11 +202,28 @@ function score(q, label) {
   return sc;
 }
 
+let browse = null;
+let browseVisible = false;
+// The hub needs the desktop main process (TMDB, health checks, guest webviews); Android has none.
+const canStream = () => !!(window.host && window.host.streaming);
+
 const shell = {
   skins: SKINS,
   get current() { return current && current.meta; },
   setSkin: id => setSkin(id),
   closeOverlays,
+
+  toggleStreaming(show) {
+    const want = show != null ? show : !browseVisible;
+    if (want && !canStream()) return;
+    if (want && !browse) {
+      browse = mountBrowse(engine, shell);
+      body.append(browse.el);
+    }
+    if (want) { browse.show(); browseVisible = true; body.classList.add('k-streaming'); }
+    else if (browse) { browse.hide(); browseVisible = false; body.classList.remove('k-streaming'); }
+  },
+  get browseVisible() { return browseVisible; },
 
   openPalette() {
     const input = h('input.k-palette-input', { placeholder: 'Type a command, track, chapter or file', spellcheck: 'false' });
@@ -388,6 +407,7 @@ const KEYS = [
   ['ctrl+Tab', () => cycleSkin(1)], ['ctrl+shift+Tab', () => cycleSkin(-1)], ['ctrl+b', e => e.showLibrary(e.state.view !== 'library')],
   ['ctrl+l', () => shell.command('playlist')], ['ctrl+e', () => shell.command('effects')], ['ctrl+i', () => shell.command('info')],
   ['shift+?', () => shell.showShortcuts()], ['?', () => shell.showShortcuts()],
+  ['ctrl+shift+S', () => shell.toggleStreaming()],
   ['ctrl+q', () => window.host.win.close()], ['ctrl+w', () => window.host.win.close()],
   ['MediaPlayPause', e => e.toggle()], ['MediaTrackNext', e => e.next()], ['MediaTrackPrevious', e => e.prev()], ['MediaStop', e => e.stop()],
 ];
@@ -401,6 +421,7 @@ document.addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('input, textarea, select') && e.key !== 'Escape') return;
   if (e.key === 'Escape') {
     if (document.querySelector('.k-overlay')) { closeOverlays(); e.preventDefault(); return; }
+    if (browseVisible) { if (!browse.back()) shell.toggleStreaming(false); e.preventDefault(); return; }
     if (engine.state.fullscreen) { engine.toggleFullscreen(); e.preventDefault(); return; }
   }
   if (current && current.handle && current.handle.onKey && current.handle.onKey(e)) { e.preventDefault(); return; }

@@ -11,6 +11,7 @@ A video player with VLC's engine and a plain, quiet interface. It plays everythi
 - Skip intro during chapters named Intro, Opening or Recap, and an up next card with a countdown near the end.
 - Bookmarks (Ctrl+D) shown on the seek bar, double click the left or right side to jump 10 seconds, a queue panel, and a mini player (Ctrl+M).
 - Quality badges next to the title (4K, HEVC, 5.1) and six colour themes on the home page, which has moving film doodles.
+- **Stream (Ctrl+Shift+S)**, a hub inside the desktop app: films, series and anime from TMDB (bring your own free API key), free live TV channels from iptv-org and radio from radio-browser.info. Trailers play silently behind titles, the colours follow whatever is on screen, and films open in a theater that health-checks the embed sources on your network, falls through to the next if one fails, and glows with the picture. Live TV and radio play in Kaleido itself.
 
 ## Only in Kaleido
 
@@ -32,6 +33,7 @@ The logo is a lens iris that is also a kaleidoscope: six blades, one for each co
 - `engine/` is a small Rust program that loads libVLC from `vendor/vlc`, receives decoded frames through VLC's video callbacks and streams them, along with the player state, over a local WebSocket. Playback, codecs, subtitles, the equalizer and filters are all VLC.
 - `main.js` is the Electron main process. It starts the engine, restarts it if a VLC module crashes, and handles files, windows and saved state.
 - `src/core/` draws frames with WebGL and keeps the player state (`engine.js`), and holds the shared shell (keyboard, drag and drop, idle hiding).
+- `streaming/` holds the hub's main-process side: TMDB, iptv-org and radio-browser clients, embed source health checks, and the locked-down session the theater's `<webview>` guests run in (no Node, https only, no pop-ups, ad networks blocked). `src/core/browse.js` is the hub's interface.
 - `src/skins/normal/` is the default interface; `src/skins/room/` and `src/skins/prose/` are the alternatives.
 - `android/` is the Android app: the same `src/` in a WebView over libVLC for Android, which draws the picture natively under the page. A small Kotlin bridge speaks the engine's protocol, so `engine.js` runs unchanged; `src/core/native-video.js` and `src/core/touch.js` are the Android pieces.
 
