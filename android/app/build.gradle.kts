@@ -90,13 +90,16 @@ dependencies {
 }
 
 // The UI is the desktop app's own src/ folder (and the logo), copied in at build time so the
-// two never drift apart.
+// two never drift apart. So are the streaming hub's data modules (guest.js is Electron-only).
 abstract class CopyWebTask : DefaultTask() {
     @get:InputDirectory
     abstract val ui: DirectoryProperty
 
     @get:InputDirectory
     abstract val art: DirectoryProperty
+
+    @get:InputDirectory
+    abstract val streaming: DirectoryProperty
 
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
@@ -113,6 +116,10 @@ abstract class CopyWebTask : DefaultTask() {
                 into("assets")
                 include("logo.svg", "icon-64.png", "icon-256.png")
             }
+            from(streaming) {
+                into("streaming")
+                include("tmdb.js", "providers.js", "iptv.js", "radio.js", "adblock.json")
+            }
         }
     }
 }
@@ -122,6 +129,7 @@ androidComponents {
         val copy = tasks.register<CopyWebTask>("copy${variant.name.replaceFirstChar(Char::uppercase)}Web") {
             ui.set(rootProject.layout.projectDirectory.dir("../src"))
             art.set(rootProject.layout.projectDirectory.dir("../assets"))
+            streaming.set(rootProject.layout.projectDirectory.dir("../streaming"))
         }
         variant.sources.assets?.addGeneratedSourceDirectory(copy, CopyWebTask::outputDir)
     }

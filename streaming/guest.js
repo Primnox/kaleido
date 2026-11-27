@@ -4,23 +4,37 @@ const { session, webContents } = require('electron');
 
 const PARTITION = 'persist:kaleido-stream';
 
-const AD_HOSTS = [
-  'doubleclick.net', 'googlesyndication.com', 'googleadservices.com', 'adservice.google.com', 'google-analytics.com', 'googletagmanager.com',
-  'popads.net', 'popcash.net', 'propellerads.com', 'adsterra.com', 'exoclick.com', 'exosrv.com', 'juicyads.com', 'trafficjunky.net',
-  'onclickads.net', 'onclkds.com', 'a-ads.com', 'hilltopads.net', 'adcash.com', 'clickadu.com', 'plarclck.com', 'monetag.com',
-  'adskeeper.com', 'mgid.com', 'taboola.com', 'outbrain.com', 'revcontent.com', 'histats.com', 'mc.yandex.ru', 'acscdn.com',
-  'highperformanceformat.com', 'profitablecpmrate.com', 'effectivegatecpm.com', 'pushame.com', 'richpartners.co', 'galaksion.com',
-];
-const AD_HOST = new RegExp(`(^|\\.)(${AD_HOSTS.map(h => h.replace(/\./g, '\\.')).join('|')})$`, 'i');
-// Scripts that detect developer tools and redirect the page away from the player.
-const AD_PATH = /disable-devtool|devtools-detector/i;
+// Ad networks and ad-tag URL shapes, shared with the Android app (see adblock.json for why each).
+const ADS = require('./adblock.json');
+const AD_HOST = new RegExp(`(^|\\.)(${ADS.hosts.map(h => h.replace(/\./g, '\\.')).join('|')})$`, 'i');
+const AD_URLS = ADS.patterns.map(p => new RegExp(p));
+const isAd = url => AD_HOST.test(hostOf(url)) || AD_URLS.some(r => r.test(url));
 
 const hostOf = url => { try { return new URL(url).hostname; } catch { return ''; } };
+
+// Some embeds only play inside someone's iframe and leave for another site when they find
+// themselves at the top (2Embed). The theater frames those in this exact page, as a data: URL.
+const FRAME_MARK = '<!--kaleido-frame-->';
+function framePage(url) {
+  const src = String(url).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  return `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>${FRAME_MARK}<meta name="viewport" content="width=device-width,initial-scale=1">`
+    + '<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}iframe{display:block;width:100%;height:100%;border:0}</style>'
+    + `<iframe src="${src}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe>`)}`;
+}
+// Only a page framePage() made, around an https player, may stand in for an https src.
+function isFramePage(src) {
+  if (!/^data:text\/html;charset=utf-8,/.test(src || '')) return false;
+  let html;
+  try { html = decodeURIComponent(src.slice(src.indexOf(',') + 1)); } catch { return false; }
+  const m = /<iframe src="([^"]*)"/.exec(html);
+  return html.startsWith(`<!doctype html>${FRAME_MARK}`) && !!m && /^https:\/\//i.test(m[1].replace(/&amp;/g, '&')) && framePage(m[1].replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&')) === src;
+}
 
 function setup(win) {
   const ses = session.fromPartition(PARTITION);
   ses.setUserAgent(ses.getUserAgent().replace(/\s(kaleido|Electron)\/\S+/gi, ''));
-  ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (d, cb) => cb({ cancel: AD_HOST.test(hostOf(d.url)) || AD_PATH.test(d.url) }));
+  ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (d, cb) => cb({ cancel: isAd(d.url) }));
+  require('./sniff').observe(ses);
   ses.setPermissionRequestHandler((wc, permission, cb) => cb(permission === 'fullscreen'));
 
   win.webContents.on('will-attach-webview', (e, prefs, params) => {
@@ -30,7 +44,7 @@ function setup(win) {
     prefs.sandbox = true;
     // Embeds start on their own (the hub's silent trailer previews rely on it); sound stays opt-in.
     prefs.autoplayPolicy = 'no-user-gesture-required';
-    if (params.partition !== PARTITION || !/^https:\/\//i.test(params.src || '')) e.preventDefault();
+    if (params.partition !== PARTITION || !(/^https:\/\//i.test(params.src || '') || isFramePage(params.src))) e.preventDefault();
   });
 
   win.webContents.on('did-attach-webview', (e, guest) => {
@@ -77,4 +91,4 @@ async function sample(sender, id) {
   };
 }
 
-module.exports = { setup, sample, PARTITION };
+module.exports = { setup, sample, framePage, isFramePage, PARTITION };

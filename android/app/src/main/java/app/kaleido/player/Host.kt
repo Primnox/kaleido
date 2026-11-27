@@ -19,6 +19,8 @@ import java.util.concurrent.Executors
 class Host(private val act: MainActivity) {
     private val io = Executors.newFixedThreadPool(2)
     private val frames = Executors.newSingleThreadExecutor()
+    // The hub's web requests: source health checks run several at once and may each take seconds.
+    private val net = Executors.newFixedThreadPool(8)
     private val main = Handler(Looper.getMainLooper())
     private val store = File(act.filesDir, "store.json")
 
@@ -37,6 +39,9 @@ class Host(private val act: MainActivity) {
             "thumb" -> frames.execute { resolve(id, safe { act.library.thumb(a.optString(0), a.optDouble(1, 0.0), a.optInt(2, 320)) }) }
             "poster" -> frames.execute { resolve(id, safe { act.library.poster(a.optString(0), a.optDouble(1, 0.0)) }) }
             "duration" -> frames.execute { resolve(id, safe { act.library.duration(a.optString(0)) }) }
+            "http" -> net.execute { resolve(id, safe { Theater.fetch(a.optString(0), a.optJSONObject(1)) }) }
+            "streamSample" -> main.post { act.theater.sample(a.optInt(0)) { resolve(id, it) } }
+            "streamSniff" -> main.post { act.theater.sniff(a.optString(0)) { resolve(id, it) } }
             else -> io.execute { resolve(id, safe { run(name, a) }) }
         }
     }
@@ -88,6 +93,15 @@ class Host(private val act: MainActivity) {
 
     @JavascriptInterface
     fun insets(): String = act.insetsJson()
+
+    @JavascriptInterface
+    fun playerOpen(id: Int, url: String, referrer: String) { main.post { act.theater.open(id, url, referrer) } }
+
+    @JavascriptInterface
+    fun playerPlace(id: Int, x: Double, y: Double, w: Double, h: Double) { main.post { act.theater.place(id, x, y, w, h) } }
+
+    @JavascriptInterface
+    fun playerClose(id: Int) { main.post { act.theater.close(id) } }
 
     companion object {
         fun toJs(v: Any?): String {

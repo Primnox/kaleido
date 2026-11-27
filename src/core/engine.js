@@ -252,7 +252,7 @@ export function createEngine() {
     const meta = m.meta || {};
     const item = state.item ? { ...state.item } : null;
     if (item) {
-      if (meta.title && meta.title !== item.fileName && !junkTitle(meta.title)) item.title = meta.title;
+      if (meta.title && meta.title !== item.fileName && !junkTitle(meta.title) && !item.stream) item.title = meta.title;
       item.artist = meta.artist || item.artist || '';
       item.album = meta.album || item.album || '';
       item.artwork = meta.artwork || item.artwork || '';
@@ -294,8 +294,9 @@ export function createEngine() {
     if (!it || !state.settings.resume || !state.duration) return;
     const t = currentTime();
     const resume = { ...state.resume };
-    if (t < 15 || t > state.duration - 20) delete resume[it.path];
-    else resume[it.path] = { time: t, duration: state.duration, updated: Date.now() };
+    const key = it.key || it.path;
+    if (t < 15 || t > state.duration - 20) delete resume[key];
+    else resume[key] = { time: t, duration: state.duration, updated: Date.now() };
     const keys = Object.keys(resume);
     if (keys.length > 400) keys.sort((a, b) => resume[a].updated - resume[b].updated).slice(0, keys.length - 400).forEach(k => delete resume[k]);
     state.resume = resume;
@@ -321,6 +322,9 @@ export function createEngine() {
 
   // ---------- loading ----------
   const makeItem = p => ({ path: p, name: cleanName(baseName(p)), fileName: baseName(p), title: '', isAudio: AUDIO_EXT.test(p) });
+  // A stream from the hub: its own title, VLC options (the referrer and user agent its server
+  // checks) and subtitles, and a lasting key for resume, since its signed URL expires.
+  const makeStreamItem = e => ({ ...makeItem(e.path), name: e.title, title: e.title, stream: true, key: e.key, options: e.options || [], subs: e.subs || [] });
 
   function mediaOptions(extra = []) {
     const o = [...extra];
@@ -333,8 +337,8 @@ export function createEngine() {
     const entry = state.playlist[index];
     if (!entry) return;
     if (state.item) saveResume();
-    const item = makeItem(entry.path);
-    const resumeAt = start == null && state.settings.resume ? (state.resume[item.path] || {}).time || 0 : 0;
+    const item = entry.stream ? makeStreamItem(entry) : makeItem(entry.path);
+    const resumeAt = start == null && state.settings.resume ? (state.resume[item.key || item.path] || {}).time || 0 : 0;
     const at = start ?? resumeAt;
     surface.clear();
     formatInfo = null;
@@ -346,16 +350,18 @@ export function createEngine() {
       loopA: null, loopB: null, rate: 1, buffering: 0, marks: allMarks[item.path] || [], subtitleDelay: reselect ? state.subtitleDelay : 0, audioDelay: reselect ? state.audioDelay : 0,
     });
     setBase(at);
-    send({ cmd: 'open', path: item.path, start: at, paused, options: mediaOptions(item.isAudio ? visualizerOptions() : []) });
+    send({ cmd: 'open', path: item.path, start: at, paused, options: [...mediaOptions(item.isAudio ? visualizerOptions() : []), ...(item.options || [])] });
     send({ cmd: 'rate', value: 1 });
     if (state.adjust.enabled) send({ cmd: 'adjust', ...state.adjust });
     if (state.deinterlace) send({ cmd: 'deinterlace', mode: state.deinterlace });
+    if (item.stream && !reselect) setTimeout(() => { if (state.item && state.item.path === item.path) item.subs.forEach(s => send({ cmd: 'addSubtitle', uri: s.url })); }, 1500);
     if (!reselect) {
-      touchRecent(item);
+      if (!item.stream) touchRecent(item);
       if (resumeAt > 0) osd(`Resumed at ${fmt(resumeAt)}. Press Home to start over.`, 'history');
     }
     if (state.view !== 'player' && !reselect) set({ view: 'player' });
     emit('loaded', item);
+    if (item.stream) return;
     if (state.settings.skipSilence) setTimeout(loadSilences, 1500);
     prefetchThumbs(item.path);
   }
@@ -865,13 +871,19 @@ export function createEngine() {
   async function openFolderDialog() { const files = await host.openFolder(); if (files.length) open(files); }
   async function openSubtitleDialog() { const p = await host.openSubtitle(); if (p) addSubtitle(p); }
   function openUrl(url) { if (url) open([url.trim()]); }
+  // { url, title, key, options, subs: [{ url, label }] } from the streaming hub.
+  function openStream(s) {
+    if (!s || !s.url) return;
+    set({ playlist: [{ path: s.url, name: s.title, title: s.title, stream: true, key: s.key, options: s.options, subs: s.subs }] });
+    load(0);
+  }
 
   window.addEventListener('beforeunload', () => saveResume());
 
   const api = {
     state, surface, canvas: surface.canvas, on, set, osd, currentTime, fmt, fileUri, can,
     restore, connect, saveSettings,
-    open, openDialog, openFolderDialog, openSubtitleDialog, openUrl, addSubtitle, forgetRecent,
+    open, openDialog, openFolderDialog, openSubtitleDialog, openUrl, openStream, addSubtitle, forgetRecent,
     play, pause, toggle, stop, seek, seekBy, seekPercent,
     setVolume, volumeBy, toggleMute, setRate, rateBy,
     next, prev, playIndex, removeIndex, moveItem, clearPlaylist, toggleShuffle, cycleRepeat, upNext,

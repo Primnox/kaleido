@@ -34,6 +34,55 @@
     return s;
   }
 
+  // ---------- streaming hub ----------
+  // The desktop's own data modules (streaming/*.js, injected by MainActivity) run here in the page.
+  // Their require('electron').net.fetch is the app's fetch, which is not bound by other sites' CORS.
+  const modules = window.__kaleidoStreaming || null;
+  delete window.__kaleidoStreaming;
+  function nativeFetch(url, opts = {}) {
+    return new Promise((resolve, reject) => {
+      const signal = opts.signal;
+      const abort = () => reject(new DOMException('The request was aborted', 'AbortError'));
+      if (signal && signal.aborted) return abort();
+      if (signal) signal.addEventListener('abort', abort, { once: true });
+      call('http', String(url), { headers: opts.headers || {} }).then(r => {
+        if (signal) signal.removeEventListener('abort', abort);
+        if (!r || r.error) { reject(new TypeError((r && r.error) || 'fetch failed')); return; }
+        const body = r.body || '';
+        resolve({ ok: r.status >= 200 && r.status < 300, status: r.status, statusText: r.statusText, text: async () => body, json: async () => JSON.parse(body) });
+      });
+    });
+  }
+  const loaded = {};
+  const need = name => {
+    if (name === 'electron') return { net: { fetch: nativeFetch } };
+    if (!loaded[name]) {
+      const module = { exports: {} };
+      modules[name](need, module, module.exports);
+      loaded[name] = module;
+    }
+    return loaded[name].exports;
+  };
+  // Every hub call answers with a promise, like the desktop's IPC.
+  const api = (mod, map) => Object.fromEntries(Object.entries(map).map(([k, fn]) => [k, (...args) => Promise.resolve().then(() => need(mod)[fn](...args))]));
+  const streaming = modules && modules.tmdb ? {
+    onEscape: listen('stream:escape'),
+    sample: id => call('streamSample', id),
+    // Kaleido's own player: the stream behind an embed, ready for VLC (see Theater.kt and Relay.kt).
+    sniff: url => call('streamSniff', url),
+    // No <webview> on Android: the theater's player is a native view laid over its stage box.
+    player: {
+      open: (id, url, referrer) => N.playerOpen(id, url, referrer || ''),
+      place: (id, x, y, w, h) => N.playerPlace(id, x, y, w, h),
+      close: id => N.playerClose(id),
+      onEvent: listen('stream-player'),
+    },
+    tmdb: api('tmdb', { setKey: 'setKey', getKey: 'getKey', trending: 'trending', popular: 'popular', topRated: 'topRated', nowPlaying: 'nowPlaying', airingToday: 'airingToday', search: 'search', movieDetails: 'movieDetails', tvDetails: 'tvDetails', seasonDetails: 'seasonDetails', genres: 'genres', discover: 'discover' }),
+    providers: api('providers', { list: 'list', getEmbed: 'getEmbed', getAll: 'getAll', check: 'check' }),
+    iptv: api('iptv', { categories: 'listCategories', countries: 'listCountries', byCategory: 'categoryChannels', byCountry: 'countryChannels', search: 'search' }),
+    radio: api('radio', { top: 'topStations', popular: 'popularStations', search: 'searchStations', byCountry: 'stationsByCountry', byTag: 'stationsByTag', tags: 'topTags', countries: 'topCountries' }),
+  } : undefined;
+
   const setInsets = v => {
     const st = document.documentElement.style;
     ['top', 'right', 'bottom', 'left'].forEach((k, i) => st.setProperty(`--k-safe-${k}`, `${v[i] || 0}px`));
@@ -51,6 +100,11 @@
       const k = window.kaleido;
       if (!k) return false;
       if (document.querySelector('.k-overlay, .k-menu')) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return true;
+      }
+      // The hub: its theater, then its own page history, then back to the player (Esc on desktop).
+      if (k.shell && k.shell.browseVisible) {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         return true;
       }
@@ -113,6 +167,7 @@
     onEngineRestarted: listen('engine-restarted'),
     onSystem: listen('system'),
     debug: { capture: () => done(), quit: () => done(), system: () => done() },
+    streaming,
   };
 
   try { setInsets(JSON.parse(N.insets())); } catch (e) {}

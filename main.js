@@ -467,8 +467,25 @@ ipcMain.handle('tmdb:discover', (e, type, params) => tmdb.discover(type, params)
 ipcMain.handle('providers:list', () => providers.list());
 ipcMain.handle('providers:getEmbed', (e, providerId, type, tmdbId, season, episode) => providers.getEmbed(providerId, type, tmdbId, season, episode));
 ipcMain.handle('providers:getAll', (e, type, tmdbId, season, episode) => providers.getAll(type, tmdbId, season, episode));
-ipcMain.handle('providers:check', (e, type, tmdbId, season, episode) => providers.check(type, tmdbId, season, episode));
-ipcMain.handle('stream:sample', (e, id) => guest.sample(e.sender, id).catch(() => null));
+// Sources that only play inside an iframe reach the theater already framed (the Android app frames every source itself).
+ipcMain.handle('providers:check', async (e, type, tmdbId, season, episode) =>
+  (await providers.check(type, tmdbId, season, episode)).map(s => (s.framed ? { ...s, url: guest.framePage(s.url) } : s)));
+// Find the stream behind an embed for VLC. `debug` also returns every response the page saw.
+// The answer says how VLC should open it: HLS goes through the local relay (hosts often insist on
+// the player's Origin, which VLC cannot send); DASH and files go direct with a referrer and user agent.
+ipcMain.handle('stream:sniff', async (e, url, debug) => {
+  if (!/^https:\/\//i.test(url || '') && !guest.isFramePage(url)) return null;
+  const seen = debug ? [] : null;
+  const r = await require('./streaming/sniff').sniff(url, { timeout: 16000, log: seen && (x => { if (seen.length < 400) seen.push(x); }) });
+  let result = null;
+  if (r && r.kind === 'hls') {
+    result = { ...r, play: await require('./streaming/relay').register(r.url, { referer: r.referrer, origin: r.origin, 'user-agent': r.userAgent }), options: [] };
+  } else if (r) {
+    result = { ...r, play: r.url, options: [r.referrer && `http-referrer=${r.referrer}`, r.userAgent && `http-user-agent=${r.userAgent}`].filter(Boolean) };
+  }
+  return debug ? { result, seen } : result;
+});
+ipcMain.handle('stream:sample',(e, id) => guest.sample(e.sender, id).catch(() => null));
 ipcMain.handle('iptv:categories', () => iptv.listCategories());
 ipcMain.handle('iptv:countries', () => iptv.listCountries());
 ipcMain.handle('iptv:byCategory', (e, cat) => iptv.categoryChannels(cat));

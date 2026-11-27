@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld('host', {
   streaming: {
     onEscape: listen('stream:escape'),
     sample: webContentsId => invoke('stream:sample', webContentsId),
+    sniff: (url, debug) => invoke('stream:sniff', url, !!debug),
     tmdb: {
       setKey: key => invoke('tmdb:setKey', key),
       getKey: () => invoke('tmdb:getKey'),

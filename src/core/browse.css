@@ -721,10 +721,30 @@ webview.kb-frame { display: flex; }
   .kb-hero-side { bottom: auto; top: 84px; }
   .kb-srcs-label { display: none; }
 }
+/* ===== Android: around the status bar, navigation bar and camera cutout ===== */
+[data-platform="android"] .kb-top { height: calc(64px + var(--k-safe-top, 0px)); padding: var(--k-safe-top, 0px) calc(8px + var(--k-safe-right, 0px)) 0 calc(var(--kb-pad) + var(--k-safe-left, 0px)); }
+[data-platform="android"] .kb-theater-bar { height: calc(60px + var(--k-safe-top, 0px)); padding: var(--k-safe-top, 0px) calc(12px + var(--k-safe-right, 0px)) 0 calc(12px + var(--k-safe-left, 0px)); }
+[data-platform="android"] .kb-theater-stage { margin-bottom: var(--k-safe-bottom, 0px); }
+[data-platform="android"] .kb-dock { bottom: calc(14px + var(--k-safe-bottom, 0px)); }
+[data-platform="android"] .kb-page { padding-bottom: calc(110px + var(--k-safe-bottom, 0px)); }
+[data-platform="android"] .kb-hero-side { bottom: auto; top: calc(84px + var(--k-safe-top, 0px)); }
+[data-platform="android"] .kb-head { padding-top: calc(104px + var(--k-safe-top, 0px)); }
+[data-platform="android"] .kb-key { padding-top: calc(120px + var(--k-safe-top, 0px)); }
+[data-platform="android"] .kb-state { padding-top: calc(150px + var(--k-safe-top, 0px)); }
+/* The native player draws above this box; the box itself stays black behind it. */
+.kb-frame-native { pointer-events: none; }
+/* Without CSS access into the iframe, a closer crop keeps YouTube's title and logo out of frame. */
+.kb-hero-reel iframe.kb-amb-frame, .kb-pop-reel iframe.kb-amb-frame { transform: translate(-50%, -50%) scale(1.42); }
+
 @media (max-width: 640px) {
   .kb-top { gap: 8px; }
   .kb-tabs { overflow-x: auto; scrollbar-width: none; }
   .kb-top-right > .kb-icon-btn:not(:last-of-type) { display: none; }
   .kb-tiles { grid-template-columns: 1fr; }
   .kb-eps { grid-template-columns: 1fr; }
+  /* Phones: the title gets the bar, the sources get a row of their own under it. */
+  .kb-theater-bar { flex-wrap: wrap; height: auto !important; min-height: 60px; column-gap: 10px; padding-bottom: 10px; }
+  .kb-theater-bar > * { margin-top: 10px; }
+  .kb-theater-title { flex: 1; }
+  .kb-srcs { order: 5; flex: 1 0 100%; margin-left: 0; }
 }

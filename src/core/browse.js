@@ -3,6 +3,9 @@
 import { h, icon, windowButtons } from './ui.js';
 
 const S = () => window.host.streaming;
+// Android has no <webview>: trailers are plain YouTube iframes driven over postMessage, and the
+// theater's player is a native view the app lays over the stage (see android/.../Theater.kt).
+const nativePlayer = () => !!S().player;
 const HERO_MS = 9000;
 const PAGE_TILES = 120;
 
@@ -125,8 +128,9 @@ let onCardHover = () => {};
 let onCardPreview = () => {};
 function hoverCard(el, item, { preview = true, anchor = el } = {}) {
   const url = item.backdrop || item.poster;
-  el.addEventListener('pointerenter', () => { if (url) onCardHover(url); if (preview) onCardPreview(anchor, item); });
-  el.addEventListener('pointerleave', () => { if (url) onCardHover(null); if (preview) onCardPreview(null); });
+  // A finger has no hover: a tap opens the title instead of popping out a preview first.
+  el.addEventListener('pointerenter', e => { if (e.pointerType === 'touch') return; if (url) onCardHover(url); if (preview) onCardPreview(anchor, item); });
+  el.addEventListener('pointerleave', e => { if (e.pointerType === 'touch') return; if (url) onCardHover(null); if (preview) onCardPreview(null); });
   // Keyboard focus previews the same way, so arrow-key browsing feels like a TV app.
   el.addEventListener('focus', () => { if (!el.matches(':focus-visible')) return; if (url) onCardHover(url); if (preview) onCardPreview(anchor, item); });
   el.addEventListener('blur', () => { if (url) onCardHover(null); if (preview) onCardPreview(null); });
@@ -183,6 +187,13 @@ function holdAmbients(reason, on) {
   if (on) ambientHolds.add(reason); else ambientHolds.delete(reason);
   syncAmbients();
 }
+// How much of an element is on screen right now. IntersectionObserver's first report can arrive
+// while the page is still mid-transition (it said "offscreen" on Android), so trailers check here.
+function onScreen(node, min) {
+  const r = node.getBoundingClientRect();
+  const seen = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
+  return r.width > 0 && r.height > 0 && seen / r.height >= min;
+}
 // Only the picture: YouTube's embed markup keeps changing, so hide everything but the video itself.
 const YT_CSS = `html,body{background:#000!important;cursor:none!important;overflow:hidden!important}
 body *:not(video){visibility:hidden!important;animation:none!important}video{visibility:visible!important}`;
@@ -191,20 +202,37 @@ const YT_STATE = `(() => { const v = document.querySelector('video'); const p = 
     ended: !!v && v.ended, ad: !!p && p.classList.contains('ad-showing'), err: !!document.querySelector('.ytp-error') }; })()`;
 
 function ambient(key, { onPlay, onProgress, onEnd, onFail, cap = 150 } = {}) {
-  const view = document.createElement('webview');
+  const guest = !nativePlayer();
+  const view = document.createElement(guest ? 'webview' : 'iframe');
   view.className = 'kb-amb-frame';
-  view.setAttribute('partition', 'persist:kaleido-stream');
-  view.setAttribute('httpreferrer', 'https://www.themoviedb.org/');
   const q = new URLSearchParams({ autoplay: 1, mute: 1, controls: 0, rel: 0, playsinline: 1, iv_load_policy: 3, disablekb: 1, fs: 0, modestbranding: 1 });
+  if (guest) {
+    view.setAttribute('partition', 'persist:kaleido-stream');
+    view.setAttribute('httpreferrer', 'https://www.themoviedb.org/');
+  } else {
+    q.set('enablejsapi', 1);
+    q.set('origin', location.origin);
+    view.setAttribute('allow', 'autoplay; encrypted-media');
+    view.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+    view.tabIndex = -1;
+  }
   view.setAttribute('src', `https://www.youtube-nocookie.com/embed/${encodeURIComponent(key)}?${q}`);
   let ready = false, dead = false, playing = false, active = false, ended = false, giveUp = null;
+  // Desktop: script the guest page directly. Android: YouTube's player API over postMessage.
   const run = code => (ready && !dead ? view.executeJavaScript(code).catch(() => null) : Promise.resolve(null));
+  const post = (func, args = []) => { try { view.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*'); } catch {} };
+  const info = {};
+  let broken = false, hello = null;
+  const readState = () => (guest ? run(YT_STATE) : Promise.resolve(ready && !dead ? {
+    has: true, t: info.currentTime || 0, d: info.duration || 0, playing: info.playerState === 1, ended: info.playerState === 0, ad: false, err: broken,
+  } : null));
   const a = {
     el: view,
     holds: new Set(),
     applySound() {
       if (!active) return;
       const on = sound.on;
+      if (!guest) { if (on) { post('unMute'); post('setVolume', [70]); } else post('mute'); return; }
       run(`(() => { const p = document.getElementById('movie_player'); const v = document.querySelector('video');
         if (p && p.unMute) { if (${on}) { p.unMute(); p.setVolume(70); } else p.mute(); } else if (v) v.muted = ${!on}; })()`);
     },
@@ -214,7 +242,8 @@ function ambient(key, { onPlay, onProgress, onEnd, onFail, cap = 150 } = {}) {
       clearTimeout(giveUp);
       if (on && !playing) giveUp = setTimeout(() => { if (!playing) fail(); }, 12000);
       if (!ready) return;
-      run(`(() => { const v = document.querySelector('video'); if (v) { ${on ? 'v.play().catch(() => {})' : 'v.pause()'}; } })()`);
+      if (guest) run(`(() => { const v = document.querySelector('video'); if (v) { ${on ? 'v.play().catch(() => {})' : 'v.pause()'}; } })()`);
+      else post(on ? 'playVideo' : 'pauseVideo');
       if (on) a.applySound();
     },
     hold(reason, on) { if (on) a.holds.add(reason); else a.holds.delete(reason); syncAmbients(); },
@@ -222,7 +251,9 @@ function ambient(key, { onPlay, onProgress, onEnd, onFail, cap = 150 } = {}) {
       if (dead) return;
       dead = true;
       clearInterval(poll);
+      clearInterval(hello);
       clearTimeout(giveUp);
+      window.removeEventListener('message', onMessage);
       view.remove();
       const i = ambients.indexOf(a);
       if (i >= 0) ambients.splice(i, 1);
@@ -231,15 +262,37 @@ function ambient(key, { onPlay, onProgress, onEnd, onFail, cap = 150 } = {}) {
   };
   const fail = () => { if (dead) return; const cb = onFail; a.destroy(); if (cb) cb(); };
   a.stop = fail;
-  view.addEventListener('dom-ready', () => {
-    if (dead) return;
-    ready = true;
-    view.insertCSS(YT_CSS).catch(() => {});
-    a.setActive(active);
-  });
-  view.addEventListener('did-fail-load', e => { if (e.isMainFrame && e.errorCode !== -3) fail(); });
+  // The iframe player talks once it hears "listening"; until then keep saying it.
+  function onMessage(e) {
+    if (guest || dead || e.source !== view.contentWindow) return;
+    let d;
+    try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
+    if (!d || !d.event) return;
+    if (d.event === 'onError') broken = true;
+    else if (d.event === 'onStateChange' && typeof d.info === 'number') info.playerState = d.info;
+    else if (d.info && typeof d.info === 'object') Object.assign(info, d.info);
+    if (!ready) { ready = true; clearInterval(hello); a.setActive(active); }
+  }
+  if (guest) {
+    view.addEventListener('dom-ready', () => {
+      if (dead) return;
+      ready = true;
+      view.insertCSS(YT_CSS).catch(() => {});
+      a.setActive(active);
+    });
+    view.addEventListener('did-fail-load', e => { if (e.isMainFrame && e.errorCode !== -3) fail(); });
+  } else {
+    window.addEventListener('message', onMessage);
+    view.addEventListener('load', () => {
+      if (dead || ready) return;
+      const say = () => { try { view.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: key, channel: 'widget' }), '*'); } catch {} };
+      say();
+      clearInterval(hello);
+      hello = setInterval(say, 300);
+    });
+  }
   const poll = setInterval(async () => {
-    const s = await run(YT_STATE);
+    const s = await readState();
     if (dead || !s) return;
     if (s.err) return fail();
     if (!active && s.playing) { a.setActive(false); return; }
@@ -261,6 +314,31 @@ function ambient(key, { onPlay, onProgress, onEnd, onFail, cap = 150 } = {}) {
   syncAmbients();
   return a;
 }
+// Android's theater player: an empty box on the page, and the app's native player view kept exactly
+// over it (the ambient mode's inset and its animation included).
+let frameSeq = 0;
+function nativeFrame(url, referrer, onLoad, onFail) {
+  const P = S().player;
+  const id = ++frameSeq;
+  const box = h('div.kb-frame.kb-frame-native');
+  box.frameId = id;
+  let last = '';
+  const place = () => {
+    if (!box.isConnected) return;
+    const r = box.getBoundingClientRect();
+    const k = `${r.left},${r.top},${r.width},${r.height}`;
+    if (k !== last) { last = k; P.place(id, r.left, r.top, r.width, r.height); }
+  };
+  const ro = new ResizeObserver(place);
+  ro.observe(box);
+  const tick = setInterval(place, 250);
+  const off = P.onEvent(e => { if (e.id !== id) return; if (e.ev === 'load') onLoad(); else if (e.ev === 'fail') onFail(e.reason); });
+  P.open(id, url, referrer || '');
+  box.dispose = () => { ro.disconnect(); clearInterval(tick); off(); P.close(id); };
+  return box;
+}
+const dropFrame = v => { if (v.dispose) v.dispose(); v.remove(); };
+
 // A round mute toggle that follows the shared sound preference.
 function soundButton(cls = '') {
   const b = h(`button.kb-round.kb-sound${cls}`, { type: 'button' });
@@ -396,6 +474,7 @@ function hero(items, ctx, kicker = 'Trending this week', extra = null) {
   let pending = null;
   function startTrailer(item, key) {
     if (!previewsOn() || !ctx.alive() || slides[index] !== item) return;
+    offscreen = !onScreen(el, 0.4);
     if (offscreen) { pending = [item, key]; return; }
     pending = null;
     const mine = amb = ambient(key, {
@@ -546,6 +625,7 @@ export function mountBrowse(engine, shell) {
     return { row, paint };
   };
   const rows = [
+    S().sniff ? toggleRow('Play in Kaleido', 'Films open in Kaleido\'s own player, no ads; off uses the sources\' web players', () => pref.get('native', '1') === '1', on => pref.set('native', on ? '1' : '0')) : null,
     toggleRow('Autoplay previews', 'Trailers play silently behind titles', () => pref.get('previews', '1') === '1', on => {
       pref.set('previews', on ? '1' : '0');
       if (!on) [...ambients].forEach(a => a.stop());
@@ -563,7 +643,7 @@ export function mountBrowse(engine, shell) {
   soundListeners.add(() => rows[1].paint());
   const menu = h('div.kb-menu', { role: 'menu' },
     h('div.kb-menu-head', {}, 'Hub settings'),
-    rows.map(r => r.row),
+    rows.filter(Boolean).map(r => r.row),
     h('div.kb-menu-sep'),
     h('button.kb-set-row.kb-set-link', { type: 'button', onClick: () => { closeMenu(); go({ name: 'key', tab: route.tab || route.name }); } },
       h('span.kb-set-text', {}, h('b', {}, 'TMDB key'), h('small', {}, 'Posters, titles and episode lists')), icon('chevronRight', { size: 16 })));
@@ -571,7 +651,7 @@ export function mountBrowse(engine, shell) {
   settingsBtn.addEventListener('click', e => {
     e.stopPropagation();
     const open = !menu.classList.contains('kb-show');
-    rows.forEach(r => r.paint());
+    rows.forEach(r => r && r.paint());
     const r = settingsBtn.getBoundingClientRect();
     menu.style.top = `${Math.round(r.bottom + 10)}px`;
     menu.style.right = `${Math.max(12, Math.round(innerWidth - r.right - 8))}px`;
@@ -936,6 +1016,10 @@ export function mountBrowse(engine, shell) {
       backdrop: item.backdrop,
       sources: S().providers.check(isTv ? 'tv' : 'movie', item.id, season, episode),
       next: isTv && count && episode < count ? () => watch(item, season, episode + 1, count) : null,
+      native: {
+        title: isTv ? `${item.title} · S${season} E${episode}` : item.title,
+        key: isTv ? `tmdb:tv:${item.id}:${season}:${episode}` : `tmdb:movie:${item.id}`,
+      },
     });
   }
   function trailer(d) {
@@ -946,7 +1030,54 @@ export function mountBrowse(engine, shell) {
   }
 
   // Sources arrive health-checked and ranked; if the one playing fails, fall through to the next.
-  function openTheater({ title, label, backdrop, sources: pending, next, referrer }) {
+  // Kaleido's own player: find a source's stream in a hidden page and open it in VLC. Sources are
+  // tried in their `vlc` order; each must actually start playing within 15 seconds.
+  let streamNext = null, streamKey = null;
+  async function playNative(list, native, next, alive, status) {
+    const tries = list.filter(s => s.vlc && s.ok !== false).sort((a, b) => a.vlc - b.vlc);
+    for (const s of tries) {
+      if (!alive()) return 'cancel';
+      status(`Opening ${s.name} in Kaleido`, 'Finding the stream');
+      const r = await S().sniff(s.url).catch(() => null);
+      if (!alive()) return 'cancel';
+      if (!r) continue;
+      status(`Starting ${s.name}`, r.kind === 'dash' ? 'DASH stream' : r.kind === 'hls' ? 'HLS stream' : 'Video file');
+      setRadio(null);
+      // VLC otherwise starts streams at their lowest quality and climbs slowly. Not on Android: its
+      // libVLC aborts when the highest-quality logic switches HLS variants.
+      const best = window.host.platform === 'android' ? [] : ['adaptive-logic=highest'];
+      engine.openStream({ url: r.play, title: native.title, key: native.key, options: [...best, ...(r.options || [])], subs: r.subs });
+      const started = await new Promise(resolve => {
+        const t0 = Date.now();
+        const check = setInterval(() => {
+          const st = engine.state;
+          const mineNow = st.item && st.item.path === r.play;
+          if (!alive() || (mineNow && (st.error || st.status === 'error'))) { clearInterval(check); resolve(false); return; }
+          if (mineNow && st.playing && st.time > 0.3) { clearInterval(check); resolve(true); return; }
+          if (Date.now() - t0 > 15000) { clearInterval(check); resolve(false); }
+        }, 400);
+      });
+      if (!alive()) { engine.stop(); return 'cancel'; }
+      if (started) {
+        streamNext = next;
+        streamKey = native.key;
+        return 'playing';
+      }
+      engine.stop();
+    }
+    return 'none';
+  }
+  // A series in Kaleido's player rolls on to the next episode by itself.
+  const offEnded = engine.on('ended', () => {
+    const it = engine.state.item;
+    if (!streamNext || !it || it.key !== streamKey) return;
+    const n = streamNext;
+    streamNext = null;
+    shell.toggleStreaming(true);
+    n();
+  });
+
+  function openTheater({ title, label, backdrop, sources: pending, next, referrer, native }) {
     closeTheater();
     if (engine.state.playing) engine.pause();
     let sources = [];
@@ -978,16 +1109,22 @@ export function mountBrowse(engine, shell) {
       clearTimeout(watchdog);
       showStatus(`Connecting to ${sources[j].name}`, manual ? '' : sources[j].ms ? `Fastest working source, ${sources[j].ms} ms` : '');
       if (manual && sources.length > 1) pref.set('source', sources[j].id);
-      if (view) view.remove();
-      // A fresh guest per source: src must be set before it attaches (the main process checks it).
-      view = document.createElement('webview');
-      view.className = 'kb-frame';
-      view.setAttribute('partition', 'persist:kaleido-stream');
-      if (referrer) view.setAttribute('httpreferrer', referrer);
-      view.setAttribute('src', sources[j].url);
-      const mineView = view;
-      view.addEventListener('did-finish-load', () => { if (mineView !== view) return; clearTimeout(watchdog); setTimeout(() => status.classList.remove('kb-show'), 350); });
-      view.addEventListener('did-fail-load', e => { if (mineView === view && e.isMainFrame && e.errorCode !== -3) fail(`${sources[j].name} could not load`); });
+      if (view) dropFrame(view);
+      const loaded = () => { if (mineView !== view) return; clearTimeout(watchdog); setTimeout(() => status.classList.remove('kb-show'), 350); };
+      const broke = () => { if (mineView === view) fail(`${sources[j].name} could not load`); };
+      let mineView;
+      if (nativePlayer()) mineView = nativeFrame(sources[j].url, referrer, loaded, broke);
+      else {
+        // A fresh guest per source: src must be set before it attaches (the main process checks it).
+        mineView = document.createElement('webview');
+        mineView.className = 'kb-frame';
+        mineView.setAttribute('partition', 'persist:kaleido-stream');
+        if (referrer) mineView.setAttribute('httpreferrer', referrer);
+        mineView.setAttribute('src', sources[j].url);
+        mineView.addEventListener('did-finish-load', loaded);
+        mineView.addEventListener('did-fail-load', e => { if (e.isMainFrame && e.errorCode !== -3) broke(); });
+      }
+      view = mineView;
       stage.prepend(view);
       watchdog = setTimeout(() => fail(`${sources[j].name} is not responding`), 20000);
     }
@@ -1024,7 +1161,7 @@ export function mountBrowse(engine, shell) {
     const sampler = setInterval(async () => {
       if (sampling || !view || !theater || !theater.classList.contains('kb-ambient') || status.classList.contains('kb-show') || document.hidden) return;
       let id;
-      try { id = view.getWebContentsId(); } catch { return; }
+      try { id = view.frameId || view.getWebContentsId(); } catch { return; }
       sampling = true;
       const c = await S().sample(id).catch(() => null);
       sampling = false;
@@ -1049,19 +1186,30 @@ export function mountBrowse(engine, shell) {
     hidePop(true);
     const mine = theater;
 
-    Promise.resolve(pending).then(list => {
-      if (theater !== mine) return;
-      sources = list;
+    const pickSaved = () => {
       const saved = pref.get('source', '');
       let j = sources.findIndex(s => s.id === saved && s.ok !== false);
       if (j < 0) j = sources.findIndex(s => s.ok !== false);
       pick(j < 0 ? 0 : j);
+    };
+    Promise.resolve(pending).then(async list => {
+      if (theater !== mine) return;
+      sources = list;
+      if (native && S().sniff && pref.get('native', '1') === '1') {
+        paint();
+        // Picking a source by hand opens its web player instead, and ends the search.
+        const outcome = await playNative(sources, native, next, () => theater === mine && current < 0, showStatus);
+        if (outcome === 'playing') { closeTheater(); shell.toggleStreaming(false); return; }
+        if (outcome === 'cancel' || theater !== mine) return;
+        showStatus('Kaleido\'s player could not reach a stream', 'Opening the source\'s web player instead');
+      }
+      pickSaved();
     }).catch(err => { if (theater === mine) showStatus('Could not check sources', String(err.message || err)); });
   }
   function closeTheater() {
     if (!theater) return;
     if (theater.stopSampling) theater.stopSampling();
-    theater.querySelectorAll('webview').forEach(v => v.remove());
+    theater.querySelectorAll('webview, .kb-frame-native').forEach(dropFrame);
     theater.remove();
     theater = null;
     holdAmbients('theater', false);
@@ -1281,6 +1429,7 @@ export function mountBrowse(engine, shell) {
         onFail: () => { amb = null; body.classList.remove('kb-playing'); },
       });
       reel.replaceChildren(amb.el);
+      offscreen = !onScreen(body, 0.35);
       amb.hold('offscreen', offscreen);
     }, 3200) : null;
     let offscreen = false;
@@ -1457,6 +1606,6 @@ export function mountBrowse(engine, shell) {
     hide() { visible = false; holdAmbients('away', true); hidePop(true); closeTheater(); cleanups.forEach(f => f()); cleanups = []; token++; },
     back,
     render,
-    destroy() { clearTimeout(searchTimer); offEngine(); closeTheater(); document.removeEventListener('keydown', onKey, true); document.removeEventListener('visibilitychange', onVis); document.removeEventListener('click', closeMenu); },
+    destroy() { clearTimeout(searchTimer); offEngine(); offEnded(); closeTheater(); document.removeEventListener('keydown', onKey, true); document.removeEventListener('visibilitychange', onVis); document.removeEventListener('click', closeMenu); },
   };
 }

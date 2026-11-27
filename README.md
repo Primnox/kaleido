@@ -11,7 +11,7 @@ A video player with VLC's engine and a plain, quiet interface. It plays everythi
 - Skip intro during chapters named Intro, Opening or Recap, and an up next card with a countdown near the end.
 - Bookmarks (Ctrl+D) shown on the seek bar, double click the left or right side to jump 10 seconds, a queue panel, and a mini player (Ctrl+M).
 - Quality badges next to the title (4K, HEVC, 5.1) and six colour themes on the home page, which has moving film doodles.
-- **Stream (Ctrl+Shift+S)**, a hub inside the desktop app: films, series and anime from TMDB (bring your own free API key), free live TV channels from iptv-org and radio from radio-browser.info. Trailers play silently behind titles, the colours follow whatever is on screen, and films open in a theater that health-checks the embed sources on your network, falls through to the next if one fails, and glows with the picture. Live TV and radio play in Kaleido itself.
+- **Stream (Ctrl+Shift+S)**, a hub inside the app, on desktop and Android: films, series and anime from TMDB (bring your own free API key), free live TV channels from iptv-org and radio from radio-browser.info. Trailers play silently behind titles, the colours follow whatever is on screen, and films play in Kaleido's own player: Kaleido finds the stream behind an embed source and hands it to VLC, so there are no ads, and you get your subtitles, settings and resume. When no source's stream can be found, the film opens in a theater that health-checks the sources on your network, falls through to the next if one fails, and glows with the picture. Live TV and radio play in Kaleido itself.
 
 ## Only in Kaleido
 
@@ -33,7 +33,7 @@ The logo is a lens iris that is also a kaleidoscope: six blades, one for each co
 - `engine/` is a small Rust program that loads libVLC from `vendor/vlc`, receives decoded frames through VLC's video callbacks and streams them, along with the player state, over a local WebSocket. Playback, codecs, subtitles, the equalizer and filters are all VLC.
 - `main.js` is the Electron main process. It starts the engine, restarts it if a VLC module crashes, and handles files, windows and saved state.
 - `src/core/` draws frames with WebGL and keeps the player state (`engine.js`), and holds the shared shell (keyboard, drag and drop, idle hiding).
-- `streaming/` holds the hub's main-process side: TMDB, iptv-org and radio-browser clients, embed source health checks, and the locked-down session the theater's `<webview>` guests run in (no Node, https only, no pop-ups, ad networks blocked). `src/core/browse.js` is the hub's interface.
+- `streaming/` holds the hub's main-process side: TMDB, iptv-org and radio-browser clients, embed source health checks, and the locked-down session the theater's `<webview>` guests run in (no Node, https only, no pop-ups, ad networks and ad-tag URL shapes from `adblock.json` blocked). `sniff.js` loads a source in a hidden window under the same rules and catches the HLS playlist or DASH manifest it asks for; `relay.js` is a 127.0.0.1 relay that fetches HLS for VLC with the player's own headers and strips segments' fake image headers. `src/core/browse.js` is the hub's interface. On Android the same data modules run in the page, with the app making their web requests, and the theater and the stream finder use native WebViews under the same rules (`android/.../Theater.kt`, with `Relay.kt` as the relay).
 - `src/skins/normal/` is the default interface; `src/skins/room/` and `src/skins/prose/` are the alternatives.
 - `android/` is the Android app: the same `src/` in a WebView over libVLC for Android, which draws the picture natively under the page. A small Kotlin bridge speaks the engine's protocol, so `engine.js` runs unchanged; `src/core/native-video.js` and `src/core/touch.js` are the Android pieces.
 
@@ -75,4 +75,4 @@ cd android
 ./gradlew assembleDebug
 ```
 
-The build copies `src/` and the logo into the app, so desktop and Android always share one interface.
+The build copies `src/`, the logo and the hub's data modules from `streaming/` into the app, so desktop and Android always share one interface.

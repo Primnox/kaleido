@@ -1,6 +1,9 @@
 // TMDB API client for the main process. Requires a free API key from themoviedb.org.
 const { net } = require('electron');
-const BASE = 'https://api.themoviedb.org/3';
+// Some ISPs reset connections to api.themoviedb.org; TMDB's own second domain usually gets through.
+// Whichever answers first is used from then on.
+const BASES = ['https://api.themoviedb.org/3', 'https://api.tmdb.org/3'];
+let base = 0;
 const IMG = 'https://image.tmdb.org/t/p';
 
 let apiKey = '';
@@ -10,10 +13,20 @@ function getKey() { return apiKey; }
 
 async function api(path, params = {}) {
   if (!apiKey) throw new Error('TMDB API key not set. Get a free key at themoviedb.org/settings/api');
-  const url = new URL(`${BASE}${path}`);
-  url.searchParams.set('api_key', apiKey);
-  for (const [k, v] of Object.entries(params)) if (v != null) url.searchParams.set(k, v);
-  const res = await net.fetch(url.href);
+  const href = b => {
+    const url = new URL(`${BASES[b]}${path}`);
+    url.searchParams.set('api_key', apiKey);
+    for (const [k, v] of Object.entries(params)) if (v != null) url.searchParams.set(k, v);
+    return url.href;
+  };
+  let res;
+  try {
+    res = await net.fetch(href(base));
+  } catch (err) {
+    const other = (base + 1) % BASES.length;
+    res = await net.fetch(href(other)).catch(() => { throw err; });
+    base = other;
+  }
   if (!res.ok) throw new Error(`TMDB ${res.status}: ${res.statusText}`);
   return res.json();
 }

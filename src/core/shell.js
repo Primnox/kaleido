@@ -204,7 +204,7 @@ function score(q, label) {
 
 let browse = null;
 let browseVisible = false;
-// The hub needs the desktop main process (TMDB, health checks, guest webviews); Android has none.
+// The hub needs a host with streaming support: the desktop main process, or the Android app's bridge.
 const canStream = () => !!(window.host && window.host.streaming);
 
 const shell = {

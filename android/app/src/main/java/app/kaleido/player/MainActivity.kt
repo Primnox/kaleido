@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
     lateinit var web: WebView
     lateinit var engine: Engine
     lateinit var library: Library
+    lateinit var theater: Theater
     private lateinit var videoBox: FrameLayout
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
@@ -92,6 +93,7 @@ class MainActivity : ComponentActivity() {
 
         library = Library(this)
         engine = Engine(this, videoLayout)
+        theater = Theater(this, root)
         setupWeb()
 
         // The page lays itself out around status bars, the navigation bar and camera cutouts.
@@ -104,6 +106,7 @@ class MainActivity : ComponentActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (theater.back()) return
                 web.evaluateJavascript("window.__kaleido ? __kaleido.back() : false") { r ->
                     if (r != "true") {
                         isEnabled = false
@@ -132,11 +135,16 @@ class MainActivity : ComponentActivity() {
             allowContentAccess = false
             setSupportZoom(false)
             textZoom = 100
+            // The hub's silent trailer previews are YouTube embeds with controls off; YouTube's phone
+            // layout keeps a pause button over the picture anyway, its desktop layout does not.
+            // Nothing in Kaleido's own page reads the user agent.
+            val chrome = Regex("Chrome/[\\d.]+").find(userAgentString)?.value ?: "Chrome/138.0.0.0"
+            userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) $chrome Safari/537.36"
         }
         val loader = WebViewAssetLoader.Builder()
             .addPathHandler("/web/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
-        val shim = assets.open("kaleido-host.js").bufferedReader().use { it.readText() }
+        val shim = streamingModules() + assets.open("kaleido-host.js").bufferedReader().use { it.readText() }
         val startScript = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
         if (startScript) WebViewCompat.addDocumentStartJavaScript(web, shim, setOf("https://$ORIGIN"))
         web.webViewClient = object : WebViewClient() {
@@ -162,6 +170,17 @@ class MainActivity : ComponentActivity() {
         }
         web.addJavascriptInterface(Host(this), "KaleidoNative")
         web.loadUrl("https://$ORIGIN/web/src/index.html")
+    }
+
+    // The desktop's streaming data modules (copied into assets/streaming by the build), handed to
+    // kaleido-host.js as CommonJS-style functions so the hub runs the very same code on both.
+    private fun streamingModules(): String {
+        val out = StringBuilder("window.__kaleidoStreaming = {\n")
+        for (name in listOf("tmdb", "providers", "iptv", "radio")) {
+            val src = try { assets.open("streaming/$name.js").bufferedReader().use { it.readText() } } catch (_: Exception) { return "" }
+            out.append(JSONObject.quote(name)).append(": function (require, module, exports) {\n").append(src).append("\n},\n")
+        }
+        return out.append("};\n").toString()
     }
 
     // Calls into the page's bridge; harmless while the page is still loading.
@@ -224,11 +243,18 @@ class MainActivity : ComponentActivity() {
 
     private fun showFullScreen(on: Boolean) {
         immersive = on
+        hideBars(on)
+        js("__kaleido.emit('fullscreen', $on)")
+    }
+
+    private fun hideBars(on: Boolean) {
         val c = WindowInsetsControllerCompat(window, window.decorView)
         c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         if (on) c.hide(WindowInsetsCompat.Type.systemBars()) else c.show(WindowInsetsCompat.Type.systemBars())
-        js("__kaleido.emit('fullscreen', $on)")
     }
+
+    // The streaming theater's full screen: bars only, the player's own state is untouched.
+    fun immersive(on: Boolean) = hideBars(on || immersive)
 
     fun setBrightness(v: Double) {
         window.attributes = window.attributes.apply { screenBrightness = if (v < 0) -1f else v.toFloat().coerceIn(0.01f, 1f) }
@@ -348,8 +374,14 @@ class MainActivity : ComponentActivity() {
 
     // ---------- lifecycle ----------
 
+    override fun onStart() {
+        super.onStart()
+        theater.resume()
+    }
+
     override fun onStop() {
         super.onStop()
+        theater.pause()
         // Like "pause when the PC locks": nothing plays on with the screen off or the app closed.
         if (!isChangingConfigurations && playing) engine.handle("""{"cmd":"pause"}""")
     }

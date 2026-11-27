@@ -1,0 +1,24 @@
+{
+  "about": "What the theater's player pages may not load. Read by streaming/guest.js on desktop and copied into the Android app for Theater.kt. Patterns are matched against the full request URL, case-sensitively.",
+  "hosts": [
+    "doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com", "google-analytics.com", "googletagmanager.com",
+    "popads.net", "popcash.net", "propellerads.com", "adsterra.com", "exoclick.com", "exosrv.com", "juicyads.com", "trafficjunky.net",
+    "onclickads.net", "onclkds.com", "a-ads.com", "hilltopads.net", "adcash.com", "clickadu.com", "plarclck.com", "monetag.com",
+    "adskeeper.com", "mgid.com", "taboola.com", "outbrain.com", "revcontent.com", "histats.com", "mc.yandex.ru", "acscdn.com",
+    "highperformanceformat.com", "profitablecpmrate.com", "effectivegatecpm.com", "pushame.com", "richpartners.co", "galaksion.com",
+    "cloudpiko.com", "tagivi.com", "adplox.com"
+  ],
+  "patterns": [
+    "disable-devtool|devtools-detector",
+    "^https?://[^/]+/\\d{1,3}/[0-9a-fA-F]{32}(?:[/?#]|$)",
+    "^https?://[^/]+/\\d{1,3}/?(?:[?#]|$)",
+    "/sb/notifications/",
+    "^https?://[a-z]{2}\\.[a-z0-9-]+\\.[a-z]{2,}/(?=[A-Za-z0-9]*[a-z])(?=[A-Za-z0-9]*[A-Z])[A-Za-z0-9]{10,20}/[A-Za-z0-9]{4,8}(?:[?#]|$)"
+  ],
+  "notes": [
+    "Ad tags move to fresh or hijacked domains every few days, so the patterns catch their URL shapes instead:",
+    "/<zone>/<32 hex> and a bare /<zone> are push and pop-under loaders (seen on 2Embed: the fake cash-prize overlay).",
+    "A two-letter subdomain with two random mixed-case path parts is the fake 'confirm you are over 18' overlay (seen on VidZee).",
+    "/sb/notifications/ is a fake notification bar."
+  ]
+}

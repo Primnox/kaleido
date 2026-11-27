@@ -6,17 +6,19 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 const PROVIDERS = [
   {
-    id: 'vidlink', name: 'VidLink',
+    // vlc: the order Kaleido's own player tries sources in (their streams can be found and played
+    // by VLC); sources without it only play in their web player.
+    id: 'vidlink', name: 'VidLink', vlc: 1,
     movie: id => `https://vidlink.pro/movie/${id}?primaryColor=ffb547&autoplay=true`,
     tv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?primaryColor=ffb547&autoplay=true&nextbutton=true`,
   },
   {
-    id: 'vidfast', name: 'VidFast',
+    id: 'vidfast', name: 'VidFast', vlc: 2,
     movie: id => `https://vidfast.pro/movie/${id}?autoPlay=true`,
     tv: (id, s, e) => `https://vidfast.pro/tv/${id}/${s}/${e}?autoPlay=true`,
   },
   {
-    id: 'vidzee', name: 'VidZee',
+    id: 'vidzee', name: 'VidZee', vlc: 3,
     movie: id => `https://player.vidzee.wtf/embed/movie/${id}`,
     tv: (id, s, e) => `https://player.vidzee.wtf/embed/tv/${id}/${s}/${e}`,
   },
@@ -26,17 +28,18 @@ const PROVIDERS = [
     tv: (id, s, e) => `https://autoembed.co/tv/tmdb/${id}-${s}-${e}`,
   },
   {
-    id: '2embed', name: '2Embed',
+    // Plays only inside an iframe: at the top it leaves for another site (see guest.framePage).
+    id: '2embed', name: '2Embed', framed: true,
     movie: id => `https://www.2embed.cc/embed/${id}`,
     tv: (id, s, e) => `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}`,
   },
   {
-    id: 'vidsrc', name: 'VidSrc',
+    id: 'vidsrc', name: 'VidSrc', vlc: 4,
     movie: id => `https://vidsrc.xyz/embed/movie/${id}`,
     tv: (id, s, e) => `https://vidsrc.xyz/embed/tv/${id}/${s}/${e}`,
   },
   {
-    id: 'vidsrc-cc', name: 'VidSrc.cc',
+    id: 'vidsrc-cc', name: 'VidSrc.cc', vlc: 5,
     movie: id => `https://vidsrc.cc/v2/embed/movie/${id}`,
     tv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`,
   },
@@ -53,7 +56,7 @@ function getEmbed(providerId, type, tmdbId, season, episode) {
 }
 
 function getAll(type, tmdbId, season, episode) {
-  return PROVIDERS.map(p => ({ id: p.id, name: p.name, url: urlFor(p, type, tmdbId, season, episode) }));
+  return PROVIDERS.map(p => ({ id: p.id, name: p.name, url: urlFor(p, type, tmdbId, season, episode), framed: !!p.framed, vlc: p.vlc || 0 }));
 }
 
 // Host health is cached briefly: a host that is blocked or down stays that way for a while.
